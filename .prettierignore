@@ -1,0 +1,7 @@
+# Generated artifacts
+dist/
+dist-ssr/
+coverage/
+
+# Managed by pnpm
+pnpm-lock.yaml
