@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { ApiHealthCheck } from './components/ApiHealthCheck'
 import heroImg from './assets/hero.png'
 import reactLogo from './assets/react.svg'
 import viteLogo from './assets/vite.svg'
@@ -114,7 +115,9 @@ function App() {
       </section>
 
       <div className="ticks"></div>
-      <section id="spacer"></section>
+      <section id="api-health" aria-label="API 连接检查">
+        <ApiHealthCheck />
+      </section>
     </>
   )
 }
