@@ -2,7 +2,7 @@
 
 A 股股息观察项目，用于跟踪自选公司的历史分红，并根据统一期望股息率计算目标价格。
 
-当前处于工程初始化阶段，页面仍为 Vite 官方 React 模板。已接入本地 Cloudflare Worker + Hono，提供 `/api/health` 健康检查。真实行情、分红数据和 D1 尚未接入。
+当前已实现单分红来源 API：腾讯公司名称与行情、东方财富分红记录及财年汇总。页面仍为 Vite 模板；巨潮、D1 和业务页面后续接入。
 
 ## 开发环境
 
@@ -40,10 +40,13 @@ Prettier 按[官方建议](https://prettier.io/docs/install.html)固定精确版
 | `pnpm build`            | 检查类型并构建前端及 Worker 到 `dist/`                            |
 | `pnpm preview`          | 在本地 Workers 运行时预览构建产物，需先构建                       |
 
+API 契约、来源字段和计算口径见 [API 文档](docs/api.md)。使用 `pnpm test` 运行离线回归测试，`pnpm test:watch` 开启监听。
+
 提交前执行：
 
 ```bash
 pnpm check
+pnpm test
 pnpm build
 ```
 
@@ -66,7 +69,7 @@ tsconfig.node.json    Vite 配置文件的 TypeScript 配置
 tsconfig.json         TypeScript 项目引用入口
 ```
 
-业务页面和共享计算模块将在对应功能实现时添加。自动化测试、CI、Git hooks 和云端部署后续逐步接入。
+共享类型和精确计算位于 `shared/`，来源适配与汇总位于 `worker/`，测试位于 `tests/`。业务页面、CI、Git hooks 和云端部署后续接入。
 
 ## 本地 Worker API
 
@@ -74,7 +77,7 @@ tsconfig.json         TypeScript 项目引用入口
 
 `pnpm dev` 使用 Cloudflare Vite 插件在本地 workerd 中运行 Hono，前端使用相对路径请求同源接口。无需登录 Cloudflare，也无需先部署。
 
-- `worker/index.ts`：Hono 入口，`GET /api/health` 返回 `{"status":"ok","service":"dividend-watch"}`。
+- `worker/index.ts`：Worker 入口，业务路由在 `worker/app.ts`；`GET /api/health` 返回 `{"status":"ok","service":"dividend-watch"}`。
 - `wrangler.jsonc`：Worker 配置，`/api` 和 `/api/*` 优先进入 Worker；不存在的 API 返回 JSON 404，其他页面使用 SPA 回退。
 - `tsconfig.worker.json`：独立 Worker 类型环境，继承严格检查设置，通过 `compilerOptions.types` 引用生成文件。
 - `worker-configuration.d.ts`：由 `pnpm cf-typegen`（Wrangler 官方命令）生成并纳入版本控制，不手动编辑；修改 Wrangler 配置后重新生成。

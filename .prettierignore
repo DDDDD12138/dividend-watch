@@ -6,3 +6,4 @@ coverage/
 # Managed by pnpm
 pnpm-lock.yaml
 worker-configuration.d.ts
+tests/fixtures/*.json

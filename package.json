@@ -13,7 +13,9 @@
     "cf-typegen": "wrangler types",
     "cf-typegen:check": "wrangler types --check",
     "typecheck": "pnpm cf-typegen:check && tsc -b",
-    "check": "pnpm format:check && pnpm lint && pnpm typecheck"
+    "check": "pnpm format:check && pnpm lint && pnpm typecheck",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "dependencies": {
     "hono": "^4.13.13",
@@ -30,6 +32,7 @@
     "prettier": "3.9.10",
     "typescript": "~6.0.3",
     "vite": "^8.3.4",
+    "vitest": "^5.0.5",
     "wrangler": "^4.151.1"
   },
   "packageManager": "pnpm@12.11.2",
