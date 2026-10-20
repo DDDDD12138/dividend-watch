@@ -2,7 +2,7 @@
 
 A 股股息观察项目，用于跟踪自选公司的历史分红，并根据统一期望股息率计算目标价格。
 
-当前已实现单分红来源 API：腾讯公司名称与行情、东方财富分红记录及财年汇总。页面仍为 Vite 模板；巨潮、D1 和业务页面后续接入。
+当前已实现单分红来源 API：腾讯公司名称与行情、东方财富分红记录及财年汇总。前端模板示例已清理，目前仅保留 React 应用入口，打开页面暂为空白；巨潮、D1 和业务页面后续接入。
 
 ## 开发环境
 
@@ -62,7 +62,6 @@ pnpm build
 
 ```text
 src/                  React 页面、样式和模块资源
-public/               直接提供访问的静态资源
 vite.config.ts        Vite 开发与构建配置
 tsconfig.app.json     前端 TypeScript 配置
 tsconfig.node.json    Vite 配置文件的 TypeScript 配置
@@ -87,7 +86,7 @@ tsconfig.json         TypeScript 项目引用入口
 
 类型维护遵循 [Cloudflare 官方 TypeScript 指南](https://developers.cloudflare.com/workers/languages/typescript/#5-update-your-scripts-and-ci-pipelines)：保留生成文件，通过 `wrangler types --check` 检查记录的配置哈希和运行时信息是否过期（不检查生成文件正文是否被手动修改）。`pnpm check` 和 `pnpm build` 都会经由 `pnpm typecheck` 执行该检查。若提示过期，运行 `pnpm cf-typegen`，检查生成差异后连同配置一并提交。
 
-启动后点击模板页面下方的“检查 API 连接”，或在浏览器访问 `/api/health`。命令行也可执行：
+启动后可在浏览器访问 `/api/health` 检查 API 连接。命令行也可执行：
 
 ```bash
 curl http://localhost:5173/api/health
