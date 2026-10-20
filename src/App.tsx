@@ -1,5 +1,7 @@
+import { WatchlistPage } from './features/watchlist/WatchlistPage'
+
 function App() {
-  return null
+  return <WatchlistPage />
 }
 
 export default App
