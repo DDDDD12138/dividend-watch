@@ -17,8 +17,12 @@ export interface ApiResponse<T> {
   data: T
   meta: Meta
 }
-export interface Company {
+export type Market = 'SH' | 'SZ' | 'BJ'
+export interface StockIdentity {
   code: string
+  market: Market
+}
+export interface Company extends StockIdentity {
   name: string
 }
 export interface Quote extends Company {

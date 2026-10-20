@@ -7,7 +7,14 @@ import type {
 } from '../shared/api'
 import { createApp } from '../worker/app'
 import { SourceCache, type ResponseCache } from '../worker/services/cache'
-import { fixtureFetcher, now, quoteBytes } from './helpers'
+import {
+  fixtureFetcher,
+  now,
+  quoteBytes,
+  quoteText,
+  searchResponse,
+  bankCompanies,
+} from './helpers'
 class MemoryCache implements ResponseCache {
   entries = new Map<string, Response>()
   async match(key: Request) {
@@ -31,18 +38,21 @@ describe('API contracts', () => {
     '/api/quotes?codes=601939,',
     '/api/quotes?codes=601939&codes=601398',
     '/api/companies/xx/dividends',
+    '/api/companies',
+    '/api/companies?q= ',
+    '/api/companies?q=a&q=b',
     '/api/companies?q=' + 'x'.repeat(51),
   ])('rejects invalid input %s', async (path) => {
     expect((await app.request(path)).status).toBe(400)
   })
   it.each([
     '/api/missing',
-    '/api/companies/600900/dividends',
-    '/api/quotes?codes=600900',
-  ])('reports unsupported paths/codes %s', async (path) => {
+    '/api/companies/999999/dividends',
+    '/api/quotes?codes=999999',
+  ])('reports unavailable identities and paths %s', async (path) => {
     expect((await app.request(path)).status).toBe(404)
   })
-  it('returns the source-specific history with no fake payout fields', async () => {
+  it('returns source history without fake payout fields', async () => {
     const response = await app.request('/api/companies/601939/dividends')
     expect(response.status).toBe(200)
     expect(response.headers.get('Cache-Control')).toBe('no-store')
@@ -58,14 +68,27 @@ describe('API contracts', () => {
     expect(body.data).not.toHaveProperty('complete')
     expect(body.data.records[0]).not.toHaveProperty('stage')
   })
-  it('returns 503 rather than test fixtures when a source fails', async () => {
+  it('returns search identities from Eastmoney instead of fetching every quote', async () => {
+    const fetcher = vi.fn(fixtureFetcher)
+    const app = createApp({ fetcher })
+    const body = (await (
+      await app.request('/api/companies?q=建设')
+    ).json()) as ApiResponse<Company[]>
+    expect(body.data).toEqual([bankCompanies[0]])
+    expect(body.meta.source).toBe('eastmoney')
+    expect(fetcher).toHaveBeenCalledTimes(1)
+    expect(String(fetcher.mock.calls[0][0])).toContain(
+      'searchapi.eastmoney.com',
+    )
+  })
+  it('returns 503 rather than fixtures or false not-found when a source fails', async () => {
     const failed = createApp({
       fetcher: async () => {
         throw new Error('upstream details')
       },
     })
     for (const path of [
-      '/api/companies',
+      '/api/companies?q=银行',
       '/api/quotes?codes=601939',
       '/api/companies/601939/dividends',
     ]) {
@@ -74,30 +97,115 @@ describe('API contracts', () => {
       expect(await response.text()).not.toContain('upstream details')
     }
   })
-  it('uses dynamically fetched names and reports partial company availability', async () => {
-    const fetcher = vi.fn(async () => new Response(quoteBytes()))
-    const live = createApp({ fetcher, now: () => now })
-    const response = await live.request('/api/companies?q=建设')
-    const body = (await response.json()) as ApiResponse<Company[]>
-    expect(body.data).toEqual([{ code: '601939', name: '建设银行' }])
-    expect(body.meta.issues).toHaveLength(2)
-    const quote = (await (
-      await live.request('/api/quotes?codes=601939,601398,600900')
+  it('requests only resolved symbols and preserves per-company failures', async () => {
+    const fetcher = vi.fn(async (input: string | URL | Request) => {
+      const url = new URL(String(input))
+      if (url.hostname === 'qt.gtimg.cn') {
+        expect(url.pathname.slice(3)).toBe('sh601398,sh601939')
+        return new Response(quoteBytes())
+      }
+      return fixtureFetcher(input)
+    })
+    const app = createApp({ fetcher, now: () => now })
+    const body = (await (
+      await app.request('/api/quotes?codes=601939,601398,999999')
     ).json()) as ApiResponse<QuoteItem[]>
-    expect(quote.data[0].quote?.price).toBe('11.45')
-    expect(quote.data[1].error).not.toBeNull()
-    expect(quote.data[2].error?.code).toBe('UNSUPPORTED_COMPANY')
+    expect(body.data[0].quote?.name).toBe('建设银行')
+    expect(body.data[0].quote?.market).toBe('SH')
+    expect(body.data[1].error?.code).toBe('QUOTE_UNAVAILABLE')
+    expect(body.data[2].error?.code).toBe('UNSUPPORTED_COMPANY')
   })
-  it('keeps source caches independent and does not re-fetch dividends on quote errors', async () => {
-    const fetcher = vi.fn(fixtureFetcher),
-      cache = new MemoryCache()
-    const cached = createApp({ fetcher, cache, now: () => now })
-    await cached.request('/api/companies/601939/dividends')
-    expect((await cached.request('/api/quotes?codes=601939')).status).toBe(503)
-    const response = await cached.request('/api/companies/601939/dividends')
-    const body = (await response.json()) as ApiResponse<DividendHistory>
+  it.each([
+    ['600900', 'SH'],
+    ['000001', 'SZ'],
+    ['300750', 'SZ'],
+    ['920002', 'BJ'],
+  ] as const)(
+    'accepts %s through market identity, without a stock allowlist',
+    async (code, market) => {
+      const fetcher = vi.fn(async (input: string | URL | Request) => {
+        const url = new URL(String(input))
+        if (url.hostname === 'searchapi.eastmoney.com')
+          return searchResponse([{ code, name: 'SourceName', market }])
+        if (url.hostname === 'qt.gtimg.cn') {
+          expect(url.pathname.slice(3)).toBe(`${market.toLowerCase()}${code}`)
+          return new Response(
+            quoteText(
+              code,
+              'SourceName',
+              '10',
+              '20261019161456',
+              market.toLowerCase(),
+            ),
+          )
+        }
+        expect(url.searchParams.get('filter')).toBe(
+          `(SECUCODE="${code}.${market}")`,
+        )
+        return Response.json({ success: false, code: 9201, result: null })
+      })
+      const app = createApp({ fetcher, now: () => now })
+      expect((await app.request(`/api/quotes?codes=${code}`)).status).toBe(200)
+      const response = await app.request(`/api/companies/${code}/dividends`)
+      const body = (await response.json()) as ApiResponse<DividendHistory>
+      expect(response.status).toBe(200)
+      expect(body.data.records).toEqual([])
+      expect(body.data.referenceDividend).toBeNull()
+    },
+  )
+  it('keeps company, quotes and dividend caches independent', async () => {
+    const fetcher = vi.fn(fixtureFetcher)
+    const app = createApp({ fetcher, cache: new MemoryCache(), now: () => now })
+    await app.request('/api/companies/601939/dividends')
+    expect((await app.request('/api/quotes?codes=601939')).status).toBe(503)
+    const body = (await (
+      await app.request('/api/companies/601939/dividends')
+    ).json()) as ApiResponse<DividendHistory>
     expect(body.meta.cache).toBe('hit')
-    expect(fetcher).toHaveBeenCalledTimes(2)
+    expect(
+      fetcher.mock.calls.filter(([url]) =>
+        String(url).includes('datacenter-web'),
+      ),
+    ).toHaveLength(1)
+    expect(
+      fetcher.mock.calls.filter(([url]) => String(url).includes('searchapi')),
+    ).toHaveLength(1)
+  })
+  it('normalizes quote cache keys but returns items in requested order', async () => {
+    const fetcher = vi.fn(async (input: string | URL | Request) =>
+      new URL(String(input)).hostname === 'qt.gtimg.cn'
+        ? new Response(quoteText('601939', 'CCB') + quoteText('601398', 'ICBC'))
+        : fixtureFetcher(input),
+    )
+    const app = createApp({ fetcher, cache: new MemoryCache(), now: () => now })
+    await app.request('/api/quotes?codes=601939,601398')
+    const body = (await (
+      await app.request('/api/quotes?codes=601398,601939')
+    ).json()) as ApiResponse<QuoteItem[]>
+    expect(body.meta.cache).toBe('hit')
+    expect(body.data.map((item) => item.code)).toEqual(['601398', '601939'])
+    expect(
+      fetcher.mock.calls.filter(([url]) => String(url).includes('qt.gtimg')),
+    ).toHaveLength(1)
+  })
+  it('does not present rejected dividend identity as a successful empty history', async () => {
+    const app = createApp({
+      now: () => now,
+      fetcher: async (input) =>
+        new URL(String(input)).hostname === 'searchapi.eastmoney.com'
+          ? fixtureFetcher(input)
+          : Response.json({
+              success: true,
+              result: {
+                pages: 1,
+                count: 1,
+                data: [{ SECURITY_CODE: '600000' }],
+              },
+            }),
+    })
+    expect((await app.request('/api/companies/601939/dividends')).status).toBe(
+      503,
+    )
   })
 })
 describe('cache TTL', () => {
@@ -138,16 +246,21 @@ describe('cache TTL', () => {
   })
 })
 
-it('does not present rejected stock records as an empty successful history', async () => {
+it('bounds identity resolution concurrency within a batch', async () => {
+  let active = 0,
+    peak = 0
   const app = createApp({
-    now: () => now,
-    fetcher: async () =>
-      Response.json({
-        success: true,
-        result: { pages: 1, count: 1, data: [{ SECURITY_CODE: '600000' }] },
-      }),
+    fetcher: async () => {
+      active++
+      peak = Math.max(peak, active)
+      await new Promise((resolve) => setTimeout(resolve, 5))
+      active--
+      return searchResponse([])
+    },
   })
-  expect((await app.request('/api/companies/601939/dividends')).status).toBe(
-    503,
-  )
+  const codes = Array.from({ length: 12 }, (_, index) => String(600000 + index))
+  expect(
+    (await app.request(`/api/quotes?codes=${codes.join(',')}`)).status,
+  ).toBe(404)
+  expect(peak).toBe(5)
 })

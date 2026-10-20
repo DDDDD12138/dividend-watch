@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest'
 import { normalizeRecord, fetchDividends } from '../worker/providers/eastmoney'
 import { parseQuotes } from '../worker/providers/tencent'
 import { request } from '../worker/providers/http'
-import { rows, now, quoteText } from './helpers'
+import { rows, now, quoteText, bankIdentity, bankCompanies } from './helpers'
 describe('source facts', () => {
   it('preserves unknown progress without translating or inventing fields', async () => {
     const raw = {
@@ -10,7 +10,7 @@ describe('source facts', () => {
       ASSIGN_PROGRESS: '来源新增状态：取消待定',
       IMPL_PLAN_PROFILE: '特别说明：不送2股',
     }
-    const record = await normalizeRecord('601939', raw)
+    const record = await normalizeRecord(bankIdentity(), raw)
     expect(record.progress).toBe(raw.ASSIGN_PROGRESS)
     expect(record.raw).toEqual(raw)
     expect(record.payDate).toBeNull()
@@ -20,7 +20,7 @@ describe('source facts', () => {
     expect(record).not.toHaveProperty('paymentStatus')
   })
   it('keeps distinct announcement dates and raw units', async () => {
-    const record = await normalizeRecord('601939', rows()[1])
+    const record = await normalizeRecord(bankIdentity(), rows()[1])
     expect(record.cashPerTenShares).toBe('2.029')
     expect(record.cashPerShare).toBe('0.2029')
     expect(record.planNoticeDate).toBe('2026-03-28')
@@ -29,7 +29,7 @@ describe('source facts', () => {
     expect(record.exDate).toBe('2026-07-13')
   })
   it('preserves valid cash when optional date, text or ratio is malformed', async () => {
-    const record = await normalizeRecord('601939', {
+    const record = await normalizeRecord(bankIdentity(), {
       ...rows()[1],
       NOTICE_DATE: '2026-02-30',
       BONUS_RATIO: 'broken',
@@ -46,7 +46,7 @@ describe('source facts', () => {
     )
   })
   it('represents invalid required values instead of silently dropping them', async () => {
-    const record = await normalizeRecord('601939', {
+    const record = await normalizeRecord(bankIdentity(), {
       ...rows()[1],
       REPORT_DATE: 'bad',
       PRETAX_BONUS_RMB: 'bad',
@@ -57,17 +57,21 @@ describe('source facts', () => {
       expect.arrayContaining(['REPORT_DATE', 'PRETAX_BONUS_RMB']),
     )
     await expect(
-      normalizeRecord('601939', { ...rows()[1], SECUCODE: '601939.HK' }),
+      normalizeRecord(bankIdentity(), { ...rows()[1], SECUCODE: '601939.HK' }),
     ).rejects.toThrow()
   })
   it('normalizes raw numeric zero and small decimals without inventing missing amounts', async () => {
     expect(
-      (await normalizeRecord('601939', { ...rows()[1], PRETAX_BONUS_RMB: 0 }))
-        .cashPerShare,
+      (
+        await normalizeRecord(bankIdentity(), {
+          ...rows()[1],
+          PRETAX_BONUS_RMB: 0,
+        })
+      ).cashPerShare,
     ).toBe('0')
     expect(
       (
-        await normalizeRecord('601939', {
+        await normalizeRecord(bankIdentity(), {
           ...rows()[1],
           PRETAX_BONUS_RMB: null,
         })
@@ -75,7 +79,7 @@ describe('source facts', () => {
     ).toBeNull()
     expect(
       (
-        await normalizeRecord('601939', {
+        await normalizeRecord(bankIdentity(), {
           ...rows()[1],
           BONUS_RATIO: 0.00000001,
         })
@@ -94,7 +98,7 @@ describe('pagination', () => {
         result: { pages: 2, count: 2, data: [page === '1' ? raw : reversed] },
       })
     })
-    const result = await fetchDividends(fetcher, '601939', now)
+    const result = await fetchDividends(fetcher, bankIdentity(), now)
     expect(fetcher).toHaveBeenCalledTimes(2)
     expect(result.records).toHaveLength(1)
     expect(result.fetchedRecords).toBe(2)
@@ -110,7 +114,7 @@ describe('pagination', () => {
         }),
       )
       .mockRejectedValueOnce(new Error('timeout'))
-    const result = await fetchDividends(fetcher, '601939', now)
+    const result = await fetchDividends(fetcher, bankIdentity(), now)
     expect(result.records).toHaveLength(1)
     expect(result.completeFetch).toBe(false)
     expect(result.issues).toContainEqual({ code: 'INCOMPLETE_PAGINATION' })
@@ -123,7 +127,7 @@ describe('pagination', () => {
     const result = await fetchDividends(
       async () =>
         Response.json({ success: true, result: { pages: 1, count: 2, data } }),
-      '601939',
+      bankIdentity(),
       now,
     )
     expect(result.records).toHaveLength(1)
@@ -137,7 +141,7 @@ describe('pagination', () => {
           success: true,
           result: { pages: 0, count: 0, data: [] },
         }),
-      '601939',
+      bankIdentity(),
       now,
     )
     expect(result.completeFetch).toBe(true)
@@ -145,7 +149,7 @@ describe('pagination', () => {
     await expect(
       fetchDividends(
         async () => Response.json({ success: false, result: null }),
-        '601939',
+        bankIdentity(),
         now,
       ),
     ).rejects.toThrow()
@@ -165,9 +169,9 @@ describe('pagination', () => {
           result: { pages: 3, count: 3, data: [rows()[2]] },
         }),
       )
-    expect((await fetchDividends(fetcher, '601939', now)).completeFetch).toBe(
-      false,
-    )
+    expect(
+      (await fetchDividends(fetcher, bankIdentity(), now)).completeFetch,
+    ).toBe(false)
   })
 })
 describe('quotes and network', () => {
@@ -175,6 +179,7 @@ describe('quotes and network', () => {
     const result = parseQuotes(
       quoteText('601939', 'XD来源新名称'),
       now.toISOString(),
+      bankCompanies,
     )
     expect(result[0].quote?.name).toBe('XD来源新名称')
     expect(result[0].quote?.price).toBe('11.45')
@@ -184,17 +189,23 @@ describe('quotes and network', () => {
     const row = parseQuotes(
       quoteText('601939', '来源名称', '0', '20260230161456'),
       now.toISOString(),
+      bankCompanies,
     )[0]
     expect(row.quote?.name).toBe('来源名称')
     expect(row.quote?.price).toBeNull()
     expect(row.quote?.quoteTime).toBeNull()
     expect(
-      parseQuotes(quoteText() + quoteText(), now.toISOString())[0].quote,
+      parseQuotes(
+        quoteText() + quoteText(),
+        now.toISOString(),
+        bankCompanies,
+      )[0].quote,
     ).toBeNull()
     expect(
       parseQuotes(
         quoteText('601939', '来源名称', '11', '20990101120000'),
         now.toISOString(),
+        bankCompanies,
       )[0].quote?.quoteTime,
     ).toBeNull()
   })
@@ -227,4 +238,35 @@ describe('quotes and network', () => {
     ).rejects.toThrow()
     expect(fetcher).toHaveBeenCalledTimes(1)
   })
+})
+
+it('recognizes only the explicit empty-result code and treats later empty pages as incomplete', async () => {
+  const empty = { success: false, code: 9201, result: null }
+  const result = await fetchDividends(
+    async () => Response.json(empty),
+    bankIdentity(),
+    now,
+  )
+  expect(result.records).toEqual([])
+  expect(result.completeFetch).toBe(true)
+  await expect(
+    fetchDividends(
+      async () =>
+        Response.json({ ...empty, code: 9999, message: '返回数据为空' }),
+      bankIdentity(),
+      now,
+    ),
+  ).rejects.toThrow()
+  const fetcher = vi
+    .fn()
+    .mockResolvedValueOnce(
+      Response.json({
+        success: true,
+        result: { pages: 2, count: 2, data: [rows()[1]] },
+      }),
+    )
+    .mockResolvedValueOnce(Response.json(empty))
+  expect(
+    (await fetchDividends(fetcher, bankIdentity(), now)).completeFetch,
+  ).toBe(false)
 })

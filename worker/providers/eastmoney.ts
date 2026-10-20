@@ -1,4 +1,4 @@
-import type { EastmoneyDividend, Issue } from '../../shared/api'
+import type { EastmoneyDividend, Issue, StockIdentity } from '../../shared/api'
 import { decimal, perShare, units } from '../../shared/money'
 import { date, fingerprint, object, request, type Fetcher } from './http'
 export const eastmoneyUrl =
@@ -28,11 +28,12 @@ function optionalText(raw: unknown): string | null {
   return raw.trim() || null
 }
 export async function normalizeRecord(
-  code: string,
+  identity: StockIdentity,
   value: unknown,
 ): Promise<EastmoneyDividend> {
+  const { code, market } = identity
   const raw = object(value)
-  if (raw.SECURITY_CODE !== code || raw.SECUCODE !== `${code}.SH`)
+  if (raw.SECURITY_CODE !== code || raw.SECUCODE !== `${code}.${market}`)
     throw new Error('Invalid stock identity')
   const recordId = await fingerprint(raw),
     issues: Issue[] = []
@@ -90,9 +91,10 @@ export async function normalizeRecord(
 }
 export async function fetchDividends(
   fetcher: Fetcher,
-  code: string,
+  identity: StockIdentity,
   now: Date,
 ): Promise<EastmoneyResult> {
+  const { code, market } = identity
   const rawRows: unknown[] = [],
     issues: Issue[] = []
   let pagesRead = 0,
@@ -113,10 +115,22 @@ export async function fetchDividends(
         pageNumber: String(page),
         source: 'WEB',
         client: 'WEB',
-        filter: `(SECURITY_CODE="${code}")`,
+        filter: `(SECUCODE="${code}.${market}")`,
       }).toString()
       const response = await request(fetcher, url, budget, 10_000)
       const body = object(await response.json())
+      // The source's explicit empty-result code (observed for 688981.SH).
+      // An empty later page is still a pagination failure, not an empty history.
+      if (
+        page === 1 &&
+        body.success === false &&
+        body.code === 9201 &&
+        body.result === null
+      ) {
+        count = 0
+        pagesRead++
+        break
+      }
       if (body.success !== true) throw new Error('Source rejected request')
       const result = object(body.result)
       if (
@@ -151,7 +165,7 @@ export async function fetchDividends(
     seen = new Set<string>()
   for (const raw of rawRows) {
     try {
-      const row = await normalizeRecord(code, raw)
+      const row = await normalizeRecord(identity, raw)
       if (seen.has(row.recordId)) continue
       seen.add(row.recordId)
       records.push(row)

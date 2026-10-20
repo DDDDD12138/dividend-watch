@@ -6,29 +6,21 @@ import type {
   Issue,
   QuoteItem,
 } from '../shared/api'
-import { isSupported } from './scope'
 import { fetchQuotes } from './providers/tencent'
 import { fetchDividends } from './providers/eastmoney'
 import type { Fetcher } from './providers/http'
 import { buildHistory } from './services/history'
 import { SourceCache, type ResponseCache } from './services/cache'
+import { companyService, CompanyNotFound } from './services/companies'
+
 export function createApp(
   options: { fetcher?: Fetcher; now?: () => Date; cache?: ResponseCache } = {},
 ) {
   const now = options.now ?? (() => new Date()),
     fetcher = options.fetcher ?? fetch
   const cache = new SourceCache(options.cache, now)
+  const companies = companyService(fetcher, cache, now)
   const app = new Hono()
-  const quotes = () =>
-    cache.get(
-      'tencent/supported',
-      60,
-      () => fetchQuotes(fetcher, now()),
-      (result) =>
-        result.items.every(
-          (item) => item.quote && item.quote.issues.length === 0,
-        ),
-    )
   app.use('/api/*', async (c, next) => {
     c.header('Cache-Control', 'no-store')
     await next()
@@ -38,46 +30,33 @@ export function createApp(
   )
   app.get('/api/companies', async (c) => {
     const values = c.req.queries('q') ?? [],
-      query = (values[0] ?? '').trim().toLowerCase()
-    if (values.length > 1 || query.length > 50)
+      query = (values[0] ?? '').trim()
+    if (values.length !== 1 || !query || query.length > 50)
       return c.json(
         {
           error: {
             code: 'INVALID_QUERY',
-            message: '搜索词最多 50 个字符，且参数不能重复',
+            message: '请输入 1–50 字符的公司名称或代码',
           },
         },
         400,
       )
     try {
-      const { value, hit } = await quotes()
-      if (value.items.every((item) => !item.quote))
-        throw new Error('No company identities')
-      const data: Company[] = value.items
-        .flatMap((item) =>
-          item.quote ? [{ code: item.code, name: item.quote.name }] : [],
-        )
-        .filter(
-          (company) =>
-            company.code.includes(query) ||
-            company.name.toLowerCase().includes(query),
-        )
-      return c.json({
-        data,
+      const { value, hit } = await companies.search(query)
+      const response: ApiResponse<Company[]> = {
+        data: value.companies.slice(0, 10),
         meta: {
-          source: 'tencent',
-          scope: 'supported',
+          source: 'eastmoney',
           fetchedAt: value.fetchedAt,
           cache: hit ? 'hit' : 'miss',
-          issues: value.items
-            .filter((item) => !item.quote)
-            .map((item) => ({ code: 'COMPANY_UNAVAILABLE', field: item.code })),
+          issues: value.issues,
         },
-      })
+      }
+      return c.json(response)
     } catch {
       return c.json(
         {
-          error: { code: 'UPSTREAM_UNAVAILABLE', message: '公司资料暂不可用' },
+          error: { code: 'UPSTREAM_UNAVAILABLE', message: '公司搜索暂不可用' },
         },
         503,
       )
@@ -102,29 +81,71 @@ export function createApp(
         },
         400,
       )
-    if (codes.every((code) => !isSupported(code)))
+    // Limit identity lookups inside this request; never share Worker request promises globally.
+    const identities = new Map<string, Company>(),
+      failures = new Map<string, QuoteItem>()
+    const budget = AbortSignal.timeout(8000)
+    let cursor = 0
+    await Promise.all(
+      Array.from({ length: Math.min(5, codes.length) }, async () => {
+        while (cursor < codes.length) {
+          const code = codes[cursor++]
+          try {
+            identities.set(code, await companies.resolve(code, budget))
+          } catch (error) {
+            failures.set(code, {
+              code,
+              quote: null,
+              error:
+                error instanceof CompanyNotFound
+                  ? {
+                      code: 'UNSUPPORTED_COMPANY',
+                      message: '未找到受支持的 A 股公司',
+                    }
+                  : {
+                      code: 'COMPANY_UNAVAILABLE',
+                      message: '公司身份暂不可用',
+                    },
+            })
+          }
+        }
+      }),
+    )
+    if (!identities.size) {
+      const unsupported = [...failures.values()].every(
+        (item) => item.error?.code === 'UNSUPPORTED_COMPANY',
+      )
       return c.json(
-        { error: { code: 'UNSUPPORTED_COMPANY', message: '暂不支持这些股票' } },
-        404,
-      )
-    try {
-      const { value, hit } = await quotes()
-      const data: QuoteItem[] = codes.map(
-        (code) =>
-          value.items.find((item) => item.code === code) ?? {
-            code,
-            quote: null,
-            error: { code: 'UNSUPPORTED_COMPANY', message: '暂不支持该股票' },
+        {
+          error: {
+            code: unsupported ? 'UNSUPPORTED_COMPANY' : 'UPSTREAM_UNAVAILABLE',
+            message: unsupported
+              ? '未找到受支持的 A 股公司'
+              : '公司资料暂不可用',
           },
+        },
+        unsupported ? 404 : 503,
       )
-      if (
-        data.every(
-          (item) =>
-            !item.quote ||
-            item.quote.price === null ||
-            item.quote.quoteTime === null,
-        )
+    }
+    try {
+      const requested = [...identities.values()].sort((a, b) =>
+        a.code.localeCompare(b.code),
       )
+      const key = requested
+        .map(({ market, code }) => `${market}${code}`)
+        .join(',')
+      const { value, hit } = await cache.get(
+        `quotes/${key}`,
+        60,
+        () => fetchQuotes(fetcher, now(), requested),
+        (value) =>
+          value.items.every((item) => item.quote && !item.quote.issues.length),
+      )
+      const data = codes.map(
+        (code) =>
+          failures.get(code) ?? value.items.find((item) => item.code === code)!,
+      )
+      if (data.every((item) => !item.quote?.price || !item.quote.quoteTime))
         return c.json(
           { error: { code: 'UPSTREAM_UNAVAILABLE', message: '行情暂不可用' } },
           503,
@@ -157,20 +178,39 @@ export function createApp(
         { error: { code: 'INVALID_CODE', message: '股票代码必须为六位数字' } },
         400,
       )
-    if (!isSupported(code))
-      return c.json(
-        { error: { code: 'UNSUPPORTED_COMPANY', message: '暂不支持该股票' } },
-        404,
-      )
+    let company: Company
+    try {
+      company = await companies.resolve(code)
+    } catch (error) {
+      return error instanceof CompanyNotFound
+        ? c.json(
+            {
+              error: {
+                code: 'UNSUPPORTED_COMPANY',
+                message: '未找到受支持的 A 股公司',
+              },
+            },
+            404,
+          )
+        : c.json(
+            {
+              error: {
+                code: 'UPSTREAM_UNAVAILABLE',
+                message: '公司资料暂不可用',
+              },
+            },
+            503,
+          )
+    }
     let loaded: Awaited<ReturnType<typeof fetchDividends>>, hit: boolean
     try {
       const cached = await cache.get(
-        `eastmoney/${code}`,
+        `dividends/${company.market}/${code}`,
         3600,
-        () => fetchDividends(fetcher, code, now()),
+        () => fetchDividends(fetcher, company, now()),
         (value) =>
           value.completeFetch &&
-          value.records.every((record) => record.issues.length === 0),
+          value.records.every((record) => !record.issues.length),
       )
       loaded = cached.value
       hit = cached.hit
@@ -182,7 +222,7 @@ export function createApp(
         503,
       )
     }
-    if (!loaded.completeFetch && loaded.records.length === 0) {
+    if (!loaded.completeFetch && !loaded.records.length)
       return c.json(
         {
           error: {
@@ -192,14 +232,12 @@ export function createApp(
         },
         503,
       )
-    }
-    const data = buildHistory(code, loaded, now())
     const issues: Issue[] = [
       ...loaded.issues,
       ...loaded.records.flatMap((record) => record.issues),
     ]
     const response: ApiResponse<DividendHistory> = {
-      data,
+      data: buildHistory(code, loaded, now()),
       meta: {
         source: 'eastmoney',
         fetchedAt: loaded.fetchedAt,

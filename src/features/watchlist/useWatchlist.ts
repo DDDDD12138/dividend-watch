@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { createRequestQueue } from './requestQueue'
 import type {
   ApiResponse,
   Company,
@@ -12,7 +13,7 @@ import {
   type Preferences,
 } from './model'
 
-interface Resource<T> {
+export interface Resource<T> {
   response?: ApiResponse<T>
   loading: boolean
   error?: string
@@ -22,7 +23,7 @@ async function request<T>(
   signal: AbortSignal,
 ): Promise<ApiResponse<T>> {
   const response = await fetch(path, {
-    signal: AbortSignal.any([signal, AbortSignal.timeout(25_000)]),
+    signal: AbortSignal.any([signal, AbortSignal.timeout(30_000)]),
   })
   if (!response.ok) {
     if (response.status === 404) throw new Error('暂不支持该公司')
@@ -31,7 +32,11 @@ async function request<T>(
   return response.json() as Promise<ApiResponse<T>>
 }
 // 每个接口独立保留上次成功响应；切换参数或卸载时取消旧请求。
-function useResource<T>(path: string | null, revision: number): Resource<T> {
+function useResource<T>(
+  path: string | null,
+  revision: number,
+  load: typeof request<T> = request<T>,
+): Resource<T> {
   const key = `${path}:${revision}`
   const [state, setState] = useState<
     Omit<Resource<T>, 'loading'> & { key?: string }
@@ -39,7 +44,7 @@ function useResource<T>(path: string | null, revision: number): Resource<T> {
   useEffect(() => {
     if (!path) return
     const controller = new AbortController()
-    void request<T>(path, controller.signal).then(
+    void load(path, controller.signal).then(
       (response) => {
         if (!controller.signal.aborted) setState({ response, key })
       },
@@ -60,7 +65,7 @@ function useResource<T>(path: string | null, revision: number): Resource<T> {
       },
     )
     return () => controller.abort()
-  }, [path, key])
+  }, [path, key, load])
   const loading = path !== null && state.key !== key
   return {
     response: state.response,
@@ -68,9 +73,50 @@ function useResource<T>(path: string | null, revision: number): Resource<T> {
     error: loading ? undefined : state.error,
   }
 }
-export function useCompanies(revision: number) {
-  return useResource<Company[]>('/api/companies', revision)
+export function useCompanySearch(
+  query: string,
+  composing: boolean,
+  revision: number,
+) {
+  const text = query.trim()
+  const key = `${text}:${revision}`
+  const [state, setState] = useState<{
+    key: string
+    response?: ApiResponse<Company[]>
+    error?: string
+  }>()
+  useEffect(() => {
+    if (!text || composing) return
+    const controller = new AbortController()
+    const timer = setTimeout(() => {
+      void request<Company[]>(
+        `/api/companies?q=${encodeURIComponent(text)}`,
+        controller.signal,
+      ).then(
+        (response) => {
+          if (!controller.signal.aborted) setState({ key, response })
+        },
+        () => {
+          if (!controller.signal.aborted)
+            setState({ key, error: '搜索暂不可用，请重试' })
+        },
+      )
+    }, 250)
+    return () => {
+      clearTimeout(timer)
+      controller.abort()
+    }
+  }, [text, key, composing])
+  const current = !composing && text && state?.key === key ? state : undefined
+  return {
+    response: current?.response,
+    error: current?.error,
+    loading: !!text && !composing && !current,
+  }
 }
+const dividendQueue = createRequestQueue(4)
+const loadDividends = (path: string, signal: AbortSignal) =>
+  dividendQueue(() => request<DividendHistory>(path, signal), signal)
 export function useQuotes(codes: string[], revision: number) {
   return useResource<QuoteItem[]>(
     codes.length ? `/api/quotes?codes=${codes.join(',')}` : null,
@@ -81,6 +127,7 @@ export function useDividends(code: string, revision: number) {
   return useResource<DividendHistory>(
     `/api/companies/${code}/dividends`,
     revision,
+    loadDividends,
   )
 }
 export function usePreferences() {

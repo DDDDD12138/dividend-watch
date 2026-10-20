@@ -1,11 +1,15 @@
-import type { Issue, QuoteItem } from '../../shared/api'
+import type { Company, Issue, QuoteItem } from '../../shared/api'
 import { decimal, units } from '../../shared/money'
-import { supportedSymbols } from '../scope'
 import { date, request, type Fetcher } from './http'
-export function parseQuotes(body: string, fetchedAt: string): QuoteItem[] {
-  const matches = [...body.matchAll(/v_(sh\d{6})="([^"]*)"/g)]
-  return supportedSymbols.map((symbol): QuoteItem => {
-    const code = symbol.slice(2)
+export function parseQuotes(
+  body: string,
+  fetchedAt: string,
+  companies: Company[],
+): QuoteItem[] {
+  const matches = [...body.matchAll(/v_((?:sh|sz|bj)\d{6})="([^"]*)"/g)]
+  return companies.map((company): QuoteItem => {
+    const { code, market } = company
+    const symbol = `${market.toLowerCase()}${code}`
     const rows = matches.filter((match) => match[1] === symbol)
     if (rows.length !== 1)
       return {
@@ -54,6 +58,7 @@ export function parseQuotes(body: string, fetchedAt: string): QuoteItem[] {
       code,
       quote: {
         code,
+        market,
         name: fields[1].trim(),
         currency: 'CNY',
         price,
@@ -64,10 +69,14 @@ export function parseQuotes(body: string, fetchedAt: string): QuoteItem[] {
     }
   })
 }
-export async function fetchQuotes(fetcher: Fetcher, now: Date) {
+export async function fetchQuotes(
+  fetcher: Fetcher,
+  now: Date,
+  companies: Company[],
+) {
   const response = await request(
     fetcher,
-    `https://qt.gtimg.cn/q=${supportedSymbols.join(',')}`,
+    `https://qt.gtimg.cn/q=${companies.map(({ market, code }) => `${market.toLowerCase()}${code}`).join(',')}`,
     AbortSignal.timeout(5000),
     5000,
   )
@@ -76,7 +85,7 @@ export async function fetchQuotes(fetcher: Fetcher, now: Date) {
     ignoreBOM: false,
   }).decode(await response.arrayBuffer())
   return {
-    items: parseQuotes(text, now.toISOString()),
+    items: parseQuotes(text, now.toISOString(), companies),
     fetchedAt: now.toISOString(),
   }
 }

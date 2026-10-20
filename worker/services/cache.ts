@@ -15,9 +15,9 @@ export class SourceCache {
     load: () => Promise<T>,
     cacheable: (value: T) => boolean,
   ): Promise<{ value: T; hit: boolean }> {
-    // New namespace: never read normalized records from the reverted two-source implementation.
+    // Versioned contracts keep earlier source responses out of current caches.
     const request = new Request(
-      `https://dividend-watch-cache.invalid/single-source-v1/${key}`,
+      `https://dividend-watch-cache.invalid/a-share-v2/${key}`,
     )
     try {
       const response = await this.cache?.match(request)

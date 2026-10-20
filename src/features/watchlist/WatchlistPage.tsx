@@ -1,8 +1,10 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useState } from 'react'
 import { compareYields, timeLabel, validYield } from './model'
 import { StockRow } from './StockRow'
 import { SortMenu } from './SortMenu'
-import { useCompanies, usePreferences, useQuotes } from './useWatchlist'
+import { usePreferences, useQuotes } from './useWatchlist'
+import { AddCompanyDialog } from './AddCompanyDialog'
+import type { Company } from '../../../shared/api'
 import './watchlist.css'
 
 export function WatchlistPage() {
@@ -24,27 +26,18 @@ export function WatchlistPage() {
     },
     [],
   )
-  const companies = useCompanies(revision)
   const quotes = useQuotes(preferences.codes, revision)
   const [yieldInput, setYieldInput] = useState(preferences.expectedYield)
   const [yields, setYields] = useState<Record<string, string | undefined>>({})
-  const [search, setSearch] = useState('')
+  const [addedNames, setAddedNames] = useState<Record<string, string>>({})
   const [adding, setAdding] = useState(false)
   const [notice, setNotice] = useState('')
-  const dialog = useRef<HTMLDialogElement>(null)
   const onYield = useCallback((code: string, value: string | undefined) => {
     setYields((previous) =>
       previous[code] === value ? previous : { ...previous, [code]: value },
     )
   }, [])
-  useEffect(() => {
-    if (!adding) return
-    const element = dialog.current
-    element?.showModal()
-    return () => element?.close()
-  }, [adding])
   const refreshing =
-    companies.loading ||
     quotes.loading ||
     preferences.codes.some(
       (code) =>
@@ -55,18 +48,24 @@ export function WatchlistPage() {
   const codes = [...preferences.codes]
   if (preferences.sort === 'yield')
     codes.sort((a, b) => compareYields(yields[a], yields[b]))
-  const available = companies.response?.data ?? []
-  const followed = preferences.codes
-    .filter((code) => !available.some((company) => company.code === code))
-    .map((code) => ({
-      code,
-      name:
-        quotes.response?.data.find((item) => item.code === code)?.quote?.name ??
-        code,
-    }))
-  const choices = [...available, ...followed].filter((company) =>
-    `${company.name}${company.code}`.includes(search.trim()),
-  )
+  const names = {
+    ...addedNames,
+    ...Object.fromEntries(
+      (quotes.response?.data ?? []).flatMap((item) =>
+        item.quote ? [[item.code, item.quote.name]] : [],
+      ),
+    ),
+  }
+  function add(company: Company) {
+    if (
+      preferences.codes.includes(company.code) ||
+      preferences.codes.length >= 50
+    )
+      return
+    setAddedNames((previous) => ({ ...previous, [company.code]: company.name }))
+    update({ ...preferences, codes: [...preferences.codes, company.code] })
+    setNotice(`已添加 ${company.name}`)
+  }
   function remove(code: string) {
     update({
       ...preferences,
@@ -77,9 +76,7 @@ export function WatchlistPage() {
       delete next[code]
       return next
     })
-    setNotice(
-      `已移除 ${companies.response?.data.find((company) => company.code === code)?.name ?? code}`,
-    )
+    setNotice(`已移除 ${names[code] ?? code}`)
   }
   return (
     <main className="watchlist-page">
@@ -92,7 +89,6 @@ export function WatchlistPage() {
         <button
           className="button button-primary"
           onClick={() => {
-            setSearch('')
             setAdding(true)
           }}
         >
@@ -200,11 +196,7 @@ export function WatchlistPage() {
                 <StockRow
                   key={code}
                   code={code}
-                  name={
-                    companies.response?.data.find(
-                      (company) => company.code === code,
-                    )?.name
-                  }
+                  name={names[code]}
                   quote={quotes.response?.data.find(
                     (item) => item.code === code,
                   )}
@@ -256,86 +248,13 @@ export function WatchlistPage() {
         {notice}
       </p>
       {adding && (
-        <dialog
-          className="add-dialog"
-          ref={dialog}
-          aria-labelledby="add-title"
-          onCancel={() => setAdding(false)}
+        <AddCompanyDialog
+          codes={preferences.codes}
+          names={names}
+          onAdd={add}
+          onRemove={remove}
           onClose={() => setAdding(false)}
-        >
-          <div className="dialog-heading">
-            <h2 id="add-title">添加关注</h2>
-            <button
-              className="button"
-              aria-label="关闭添加公司"
-              onClick={() => setAdding(false)}
-            >
-              关闭
-            </button>
-          </div>
-          <p className="secondary" id="company-scope">
-            当前仅支持已接入的三家银行，可按名称或代码查找。
-          </p>
-          <label className="sr-only" htmlFor="company-search">
-            公司名称或代码
-          </label>
-          <input
-            id="company-search"
-            className="company-search"
-            placeholder="搜索公司名称或代码"
-            maxLength={50}
-            value={search}
-            onChange={(event) => setSearch(event.target.value)}
-            aria-describedby="company-scope"
-          />
-          {companies.loading && <p role="status">正在获取公司列表…</p>}
-          {companies.error && (
-            <p className="error-text" role="alert">
-              {companies.error}{' '}
-              <button
-                className="text-button"
-                onClick={() => setRevision((value) => value + 1)}
-              >
-                重试
-              </button>
-            </p>
-          )}
-          {!!companies.response?.meta.issues.length && (
-            <p className="error-text">部分公司资料暂不可用，请稍后刷新。</p>
-          )}
-          <ul className="company-choices">
-            {choices.map((company) => {
-              const added = preferences.codes.includes(company.code)
-              return (
-                <li key={company.code}>
-                  <div>
-                    <strong>{company.name}</strong>
-                    <span className="secondary">{company.code}</span>
-                  </div>
-                  <button
-                    className="button"
-                    onClick={() => {
-                      if (added) {
-                        remove(company.code)
-                        return
-                      }
-                      update({
-                        ...preferences,
-                        codes: [...preferences.codes, company.code],
-                      })
-                      setNotice(`已添加 ${company.name}`)
-                    }}
-                  >
-                    {added ? '移除关注' : '添加'}
-                  </button>
-                </li>
-              )
-            })}
-          </ul>
-          {!choices.length && !companies.loading && !companies.error && (
-            <p className="secondary">没有匹配的公司</p>
-          )}
-        </dialog>
+        />
       )}
     </main>
   )

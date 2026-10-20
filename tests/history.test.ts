@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import { fetchDividends, normalizeRecord } from '../worker/providers/eastmoney'
 import { buildHistory } from '../worker/services/history'
-import { fixtureFetcher, now, rows } from './helpers'
+import { fixtureFetcher, now, rows, bankIdentity } from './helpers'
 async function input(code = '601939') {
-  return fetchDividends(fixtureFetcher, code, now)
+  return fetchDividends(fixtureFetcher, bankIdentity(code), now)
 }
 describe('application calculations from source records', () => {
   it.each([
@@ -59,7 +59,7 @@ describe('application calculations from source records', () => {
   })
   it('supports multiple genuinely separate distributions in the same report period', async () => {
     const data = await input()
-    const extra = await normalizeRecord('601939', {
+    const extra = await normalizeRecord(bankIdentity(), {
       ...rows()[1],
       EQUITY_RECORD_DATE: '2026-09-01',
       EX_DIVIDEND_DATE: '2026-09-02',
@@ -74,7 +74,7 @@ describe('application calculations from source records', () => {
     'does not guess record identity when ambiguous (missing dates=%s)',
     async (missing) => {
       const data = await input()
-      const extra = await normalizeRecord('601939', {
+      const extra = await normalizeRecord(bankIdentity(), {
         ...rows()[1],
         PRETAX_BONUS_RMB: 3,
         ...(missing
@@ -92,7 +92,7 @@ describe('application calculations from source records', () => {
   )
   it('does not let malformed optional announcement data destroy valid sums', async () => {
     const data = await input()
-    data.records[1] = await normalizeRecord('601939', {
+    data.records[1] = await normalizeRecord(bankIdentity(), {
       ...rows()[1],
       NOTICE_DATE: 'invalid',
     })
