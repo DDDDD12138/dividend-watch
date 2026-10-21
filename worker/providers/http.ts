@@ -32,9 +32,6 @@ export function date(value: unknown): string | null {
     throw new Error('Invalid date')
   return result
 }
-export function chinaYear(now: Date): number {
-  return new Date(now.getTime() + 8 * 3600_000).getUTCFullYear()
-}
 export async function fingerprint(
   raw: Record<string, unknown>,
 ): Promise<string> {

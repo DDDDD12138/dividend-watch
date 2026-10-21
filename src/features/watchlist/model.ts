@@ -1,5 +1,6 @@
 import type { DividendHistory, Quote } from '../../../shared/api'
 import { calculateMetrics, units } from '../../../shared/money'
+import { chinaYear } from '../../../shared/time'
 
 export interface Preferences {
   version: 1
@@ -66,9 +67,7 @@ export function compareYields(a: string | undefined, b: string | undefined) {
   return left === right ? 0 : left > right ? -1 : 1
 }
 export function recentYears(history: DividendHistory, now = new Date()) {
-  const currentYear = new Date(
-    now.getTime() + 8 * 60 * 60 * 1000,
-  ).getUTCFullYear()
+  const currentYear = chinaYear(now)
   // 与参考年度对齐；无参考值时仍可查看已结束年份的历史，不混入当年部分分红。
   const latest =
     history.referenceDividend?.fiscalYear ??
@@ -87,21 +86,4 @@ export function recentYears(history: DividendHistory, now = new Date()) {
           ?.implementedTotal ?? null,
     }
   })
-}
-export function percent(ratio: string, fractionDigits = 2) {
-  return new Intl.NumberFormat('zh-CN', {
-    style: 'percent',
-    maximumFractionDigits: fractionDigits,
-    minimumFractionDigits: fractionDigits,
-  }).format(Number(ratio))
-}
-export function timeLabel(value: string) {
-  return new Intl.DateTimeFormat('zh-CN', {
-    timeZone: 'Asia/Shanghai',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-    hour12: false,
-  }).format(new Date(value))
 }

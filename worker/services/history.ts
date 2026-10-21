@@ -1,13 +1,14 @@
 import type {
   AnnualDividend,
+  Company,
   DividendHistory,
   EastmoneyDividend,
   Issue,
 } from '../../shared/api'
+import { EASTMONEY_IMPLEMENTED_PROGRESS } from '../../shared/api'
 import { sumAmounts, units } from '../../shared/money'
-import { chinaYear } from '../providers/http'
+import { chinaYear } from '../../shared/time'
 import { eastmoneyUrl, type EastmoneyResult } from '../providers/eastmoney'
-const IMPLEMENTED = '实施分配'
 /** Only clear, distinct record/ex dates establish separate distributions in one report period. */
 function hasAmbiguousRecords(rows: EastmoneyDividend[]): boolean {
   for (let i = 0; i < rows.length; i++) {
@@ -29,7 +30,7 @@ function hasAmbiguousRecords(rows: EastmoneyDividend[]): boolean {
   return false
 }
 export function buildHistory(
-  code: string,
+  company: Company,
   input: EastmoneyResult,
   now: Date,
 ): DividendHistory {
@@ -41,7 +42,9 @@ export function buildHistory(
   ].sort((a, b) => b - a)
   const annualSummaries: AnnualDividend[] = years.map((year) => {
     const records = rows.filter((row) => row.fiscalYear === year)
-    const implemented = records.filter((row) => row.progress === IMPLEMENTED)
+    const implemented = records.filter(
+      (row) => row.progress === EASTMONEY_IMPLEMENTED_PROGRESS,
+    )
     const calculationIssues: Issue[] = []
     const ambiguous = hasAmbiguousRecords(records)
     const missingProgress = records.some((row) => row.progress === null)
@@ -89,7 +92,8 @@ export function buildHistory(
   })
   const reference = annualSummaries.find((year) => year.referenceEligible)
   return {
-    code,
+    code: company.code,
+    company,
     source: 'eastmoney',
     sourceUrl: eastmoneyUrl,
     records: rows,

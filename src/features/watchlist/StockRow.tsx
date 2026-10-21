@@ -1,7 +1,9 @@
 import { useEffect } from 'react'
 import type { QuoteItem } from '../../../shared/api'
-import { metricsFor, percent, recentYears, timeLabel } from './model'
-import { useDividends } from './useWatchlist'
+import { metricsFor, recentYears } from './model'
+import { percent, timeLabel } from '../../lib/format'
+import { Link } from 'react-router'
+import { useDividends } from '../../data/api'
 
 interface Props {
   code: string
@@ -69,52 +71,58 @@ export function StockRow({
   return (
     <tr>
       <th scope="row" className="company-cell">
-        <strong>{quote?.name ?? name ?? code}</strong>
+        <strong>{quote?.name ?? name ?? data?.company.name ?? code}</strong>
         <span className="secondary">{code}</span>
       </th>
       <td className="trend-cell">
-        {years.length ? (
-          <>
-            <div
-              className="trend"
-              role="img"
-              aria-label={years
-                .map(
-                  ({ year, amount }) =>
-                    `${year}年：${amount === null ? '未知' : `${amount}元每股`}`,
-                )
-                .join('；')}
-            >
-              {years.map(({ year, amount }) => (
-                <div
-                  className="trend-track"
-                  key={year}
-                  title={`${year}：${amount === null ? '未知' : `${amount} 元/股`}`}
-                >
-                  {amount === null ? (
-                    <span className="trend-missing">—</span>
-                  ) : amount === '0' ? (
-                    <span className="trend-zero">0</span>
-                  ) : (
-                    <span
-                      className="trend-bar"
-                      style={{
-                        height: `${max ? (Number(amount) / max) * 100 : 0}%`,
-                      }}
-                    />
-                  )}
-                </div>
-              ))}
-            </div>
+        <Link
+          className="dividend-link"
+          to={`/dividends/${code}`}
+          aria-label={`查看 ${quote?.name ?? name ?? data?.company.name ?? code} 的分红记录`}
+        >
+          {years.length ? (
+            <>
+              <div
+                className="trend"
+                role="img"
+                aria-label={years
+                  .map(
+                    ({ year, amount }) =>
+                      `${year}年：${amount === null ? '未知' : `${amount}元每股`}`,
+                  )
+                  .join('；')}
+              >
+                {years.map(({ year, amount }) => (
+                  <div
+                    className="trend-track"
+                    key={year}
+                    title={`${year}：${amount === null ? '未知' : `${amount} 元/股`}`}
+                  >
+                    {amount === null ? (
+                      <span className="trend-missing">—</span>
+                    ) : amount === '0' ? (
+                      <span className="trend-zero">0</span>
+                    ) : (
+                      <span
+                        className="trend-bar"
+                        style={{
+                          height: `${max ? (Number(amount) / max) * 100 : 0}%`,
+                        }}
+                      />
+                    )}
+                  </div>
+                ))}
+              </div>
+              <span className="secondary">
+                {years[0].year} — {years[years.length - 1].year} · 明细
+              </span>
+            </>
+          ) : (
             <span className="secondary">
-              {years[0].year} — {years[years.length - 1].year}
+              {history.loading ? '加载中…' : '暂无分红数据'}
             </span>
-          </>
-        ) : (
-          <span className="secondary">
-            {history.loading ? '加载中…' : '暂无分红数据'}
-          </span>
-        )}
+          )}
+        </Link>
       </td>
       <td
         className="dividend-cell"

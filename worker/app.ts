@@ -237,7 +237,7 @@ export function createApp(
       ...loaded.records.flatMap((record) => record.issues),
     ]
     const response: ApiResponse<DividendHistory> = {
-      data: buildHistory(code, loaded, now()),
+      data: buildHistory(company, loaded, now()),
       meta: {
         source: 'eastmoney',
         fetchedAt: loaded.fetchedAt,

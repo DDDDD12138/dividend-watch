@@ -14,7 +14,10 @@
   --color-primary-hover: #205841;
   --color-on-primary: #ffffff;
   --color-focus: #286e57;
-  --color-chart-history: #9bbdaa;
+  /* 预览强调趋势；详情以浅色年度柱承托深色单次记录。 */
+  --color-dividend-preview: #9bbdaa;
+  --color-dividend-total: #adbfad;
+  --color-dividend-record: #658771;
 
   /* 状态色表达操作结果，不用于推断股价涨跌。 */
   --color-success: #286e57;
@@ -29,6 +32,9 @@
   --font-size-xs: 0.75rem;
   --font-size-sm: 0.875rem;
   --font-size-base: 1rem;
+  --font-size-chart-amount: 0.9375rem;
+  --font-size-chart-axis: 0.6875rem;
+  --font-size-chart-year: 0.8125rem;
   --font-size-lg: 1.125rem;
   --font-size-xl: 1.25rem;
   --font-size-2xl: 1.5rem;
@@ -36,6 +42,7 @@
   --font-weight-normal: 400;
   --font-weight-medium: 500;
   --font-weight-semibold: 600;
+  --font-weight-chart-amount: 650;
   --font-weight-bold: 700;
   --line-height-tight: 1.25;
   --line-height-normal: 1.6;

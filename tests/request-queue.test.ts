@@ -1,5 +1,5 @@
 import { expect, it } from 'vitest'
-import { createRequestQueue } from '../src/features/watchlist/requestQueue'
+import { createRequestQueue } from '../src/data/requestQueue'
 it('limits concurrent work and discards cancelled queued requests', async () => {
   const queue = createRequestQueue(2)
   let active = 0,

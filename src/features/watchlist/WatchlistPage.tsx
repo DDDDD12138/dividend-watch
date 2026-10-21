@@ -1,10 +1,11 @@
 import { useCallback, useState } from 'react'
-import { compareYields, timeLabel, validYield } from './model'
+import { compareYields, validYield } from './model'
 import { StockRow } from './StockRow'
 import { SortMenu } from './SortMenu'
 import { usePreferences, useQuotes } from './useWatchlist'
 import { AddCompanyDialog } from './AddCompanyDialog'
 import type { Company } from '../../../shared/api'
+import { timeLabel } from '../../lib/format'
 import './watchlist.css'
 
 export function WatchlistPage() {

@@ -36,6 +36,8 @@ export interface QuoteItem {
   quote: Quote | null
   error: ApiError | null
 }
+/** Source progress value that marks a distribution as implemented; only these records count toward annual totals. */
+export const EASTMONEY_IMPLEMENTED_PROGRESS = '实施分配'
 /** Source-specific record. No invented scheme lifecycle or dividend kind. */
 export interface EastmoneyDividend {
   recordId: string
@@ -67,6 +69,7 @@ export interface AnnualDividend {
   calculationIssues: Issue[]
 }
 export interface DividendHistory {
+  company: Company
   code: string
   source: 'eastmoney'
   sourceUrl: string

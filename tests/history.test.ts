@@ -1,7 +1,13 @@
 import { describe, expect, it } from 'vitest'
 import { fetchDividends, normalizeRecord } from '../worker/providers/eastmoney'
 import { buildHistory } from '../worker/services/history'
-import { fixtureFetcher, now, rows, bankIdentity } from './helpers'
+import {
+  fixtureFetcher,
+  now,
+  rows,
+  bankIdentity,
+  bankCompanies,
+} from './helpers'
 async function input(code = '601939') {
   return fetchDividends(fixtureFetcher, bankIdentity(code), now)
 }
@@ -11,7 +17,11 @@ describe('application calculations from source records', () => {
     ['601398', '0.3103'],
     ['601988', '0.2263'],
   ])('sums %s without an annual evidence table', async (code, total) => {
-    const history = buildHistory(code, await input(code), now)
+    const history = buildHistory(
+      bankCompanies.find((company) => company.code === code)!,
+      await input(code),
+      now,
+    )
     expect(history.referenceDividend).toEqual({
       fiscalYear: 2025,
       cashPerShare: total,
@@ -38,16 +48,18 @@ describe('application calculations from source records', () => {
       row.exDate = '2027-07-02'
     }
     expect(
-      buildHistory('601939', data, new Date('2027-02-01T00:00:00Z'))
+      buildHistory(bankCompanies[0], data, new Date('2027-02-01T00:00:00Z'))
         .referenceDividend?.cashPerShare,
     ).toBe('0.6')
-    expect(buildHistory('601939', data, now).referenceDividend).toBeNull()
+    expect(
+      buildHistory(bankCompanies[0], data, now).referenceDividend,
+    ).toBeNull()
   })
   it('excludes proposals and unknown progress without rewriting the text', async () => {
     const data = await input()
     data.records.find((r) => r.reportDate === '2025-12-31')!.progress =
       '新进度值'
-    const history = buildHistory('601939', data, now)
+    const history = buildHistory(bankCompanies[0], data, now)
     expect(history.referenceDividend?.fiscalYear).toBe(2024)
     expect(
       history.records.find((r) => r.reportDate === '2025-12-31')!.progress,
@@ -67,7 +79,7 @@ describe('application calculations from source records', () => {
     })
     data.records.push(extra)
     expect(
-      buildHistory('601939', data, now).referenceDividend?.cashPerShare,
+      buildHistory(bankCompanies[0], data, now).referenceDividend?.cashPerShare,
     ).toBe('0.4887')
   })
   it.each([true, false])(
@@ -82,7 +94,7 @@ describe('application calculations from source records', () => {
           : {}),
       })
       data.records.push(extra)
-      const history = buildHistory('601939', data, now)
+      const history = buildHistory(bankCompanies[0], data, now)
       expect(
         history.annualSummaries.find((y) => y.fiscalYear === 2025)
           ?.implementedTotal,
@@ -97,13 +109,13 @@ describe('application calculations from source records', () => {
       NOTICE_DATE: 'invalid',
     })
     expect(
-      buildHistory('601939', data, now).referenceDividend?.cashPerShare,
+      buildHistory(bankCompanies[0], data, now).referenceDividend?.cashPerShare,
     ).toBe('0.3887')
   })
   it('blocks a wrong-share-basis target without erasing the original cash total', async () => {
     const data = await input()
     data.records.find((r) => r.reportDate === '2025-12-31')!.bonusRatio = '1'
-    const history = buildHistory('601939', data, now)
+    const history = buildHistory(bankCompanies[0], data, now)
     expect(
       history.annualSummaries.find((y) => y.fiscalYear === 2025)
         ?.implementedTotal,
@@ -114,10 +126,10 @@ describe('application calculations from source records', () => {
     const data = await input()
     data.records.find((r) => r.reportDate === '2025-12-31')!.cashPerShare = null
     expect(
-      buildHistory('601939', data, now).referenceDividend?.fiscalYear,
+      buildHistory(bankCompanies[0], data, now).referenceDividend?.fiscalYear,
     ).toBe(2024)
     data.completeFetch = false
-    const history = buildHistory('601939', data, now)
+    const history = buildHistory(bankCompanies[0], data, now)
     expect(history.referenceDividend).toBeNull()
     expect(
       history.annualSummaries.every((y) => y.implementedTotal === null),
@@ -128,11 +140,12 @@ describe('application calculations from source records', () => {
     data.records = data.records.filter((r) => r.reportDate === '2025-12-31')
     data.records[0].cashPerShare = '0'
     expect(
-      buildHistory('601939', data, now).referenceDividend?.cashPerShare,
+      buildHistory(bankCompanies[0], data, now).referenceDividend?.cashPerShare,
     ).toBe('0')
     data.records[0].progress = '董事会决议通过'
     expect(
-      buildHistory('601939', data, now).annualSummaries[0].implementedTotal,
+      buildHistory(bankCompanies[0], data, now).annualSummaries[0]
+        .implementedTotal,
     ).toBeNull()
   })
 })
