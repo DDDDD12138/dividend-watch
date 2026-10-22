@@ -3,12 +3,14 @@ import { compareYields, validYield } from './model'
 import { StockRow } from './StockRow'
 import { SortMenu } from './SortMenu'
 import { usePreferences, useQuotes } from './useWatchlist'
+import { useWatchlistPosition } from './useWatchlistPosition'
 import { AddCompanyDialog } from './AddCompanyDialog'
 import type { Company } from '../../../shared/api'
 import { timeLabel } from '../../lib/format'
 import './watchlist.css'
 
 export function WatchlistPage() {
+  useWatchlistPosition()
   const { preferences, update, storageError } = usePreferences()
   const [revision, setRevision] = useState(0)
   const [dividendRequests, setDividendRequests] = useState<

@@ -118,9 +118,12 @@ export function StockRow({
               </span>
             </>
           ) : (
-            <span className="secondary">
-              {history.loading ? '加载中…' : '暂无分红数据'}
-            </span>
+            <>
+              <div className="trend" aria-hidden="true" />
+              <span className="secondary">
+                {history.loading ? '加载中…' : '暂无分红数据'}
+              </span>
+            </>
           )}
         </Link>
       </td>

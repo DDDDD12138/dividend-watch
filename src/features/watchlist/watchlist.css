@@ -1,4 +1,6 @@
 .watchlist-page {
+  /* Reordering companies must not move the restored scroll position. */
+  overflow-anchor: none;
   max-width: 1328px;
   margin-inline: auto;
   padding: var(--space-10) var(--space-6);
@@ -258,11 +260,12 @@
   align-items: flex-end;
   gap: 5px;
   width: 116px;
+  height: 36px;
   margin-bottom: var(--space-1);
 }
 .trend-track {
   flex: 1;
-  height: 36px;
+  height: 100%;
   min-width: 0;
   display: flex;
   align-items: flex-end;
@@ -548,8 +551,6 @@ body:has(.add-dialog[open]) {
   }
   .trend {
     width: 108px;
-  }
-  .trend-track {
     height: 30px;
   }
   .stock-table .price-cell,
