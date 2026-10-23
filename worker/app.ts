@@ -1,6 +1,7 @@
 import { Hono } from 'hono'
 import type {
   ApiResponse,
+  AllocationHistory,
   Company,
   DividendHistory,
   Issue,
@@ -8,6 +9,7 @@ import type {
 } from '../shared/api'
 import { fetchQuotes } from './providers/tencent'
 import { fetchDividends } from './providers/eastmoney'
+import { allocationUrl, fetchAllocations } from './providers/allocations'
 import type { Fetcher } from './providers/http'
 import { buildHistory } from './services/history'
 import { SourceCache, type ResponseCache } from './services/cache'
@@ -246,6 +248,79 @@ export function createApp(
       },
     }
     return c.json(response)
+  })
+  app.get('/api/companies/:code/allocations', async (c) => {
+    const code = c.req.param('code')
+    if (!/^\d{6}$/.test(code))
+      return c.json(
+        { error: { code: 'INVALID_CODE', message: '股票代码必须为六位数字' } },
+        400,
+      )
+    let company: Company
+    try {
+      company = await companies.resolve(code)
+    } catch (error) {
+      return error instanceof CompanyNotFound
+        ? c.json(
+            {
+              error: {
+                code: 'UNSUPPORTED_COMPANY',
+                message: '未找到受支持的 A 股公司',
+              },
+            },
+            404,
+          )
+        : c.json(
+            {
+              error: {
+                code: 'UPSTREAM_UNAVAILABLE',
+                message: '公司资料暂不可用',
+              },
+            },
+            503,
+          )
+    }
+    try {
+      const { value, hit } = await cache.get(
+        `allocations/${company.market}/${code}`,
+        3600,
+        () => fetchAllocations(fetcher, company, now()),
+        (data) =>
+          data.coverage.completeFetch &&
+          data.years.every((year) => !year.issues.length),
+      )
+      if (!value.coverage.completeFetch && !value.years.length)
+        throw new Error('No usable annual records')
+      const response: ApiResponse<AllocationHistory> = {
+        data: {
+          company,
+          source: 'eastmoney',
+          sourceUrl: allocationUrl,
+          years: value.years,
+          coverage: value.coverage,
+        },
+        meta: {
+          source: 'eastmoney',
+          fetchedAt: value.fetchedAt,
+          cache: hit ? 'hit' : 'miss',
+          issues: [
+            ...value.issues,
+            ...value.years.flatMap((year) => year.issues),
+          ],
+        },
+      }
+      return c.json(response)
+    } catch {
+      return c.json(
+        {
+          error: {
+            code: 'UPSTREAM_UNAVAILABLE',
+            message: '年度盈利与分红统计暂不可用',
+          },
+        },
+        503,
+      )
+    }
   })
   app.notFound((c) =>
     c.json({ error: { code: 'NOT_FOUND', message: '接口不存在' } }, 404),

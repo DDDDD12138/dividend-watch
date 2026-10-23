@@ -8,7 +8,7 @@ import { EASTMONEY_IMPLEMENTED_PROGRESS } from '../../../shared/api'
 import { units } from '../../../shared/money'
 import { chinaYear } from '../../../shared/time'
 export type HistoryRange = '5' | '10' | 'all'
-export type ChartLayer = 'year' | 'record'
+export type ChartLayer = 'year' | 'record' | 'profit' | 'cash'
 export interface YearGroup {
   year: number
   summary?: AnnualDividend

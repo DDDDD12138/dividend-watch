@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import type { AnnualDividend, EastmoneyDividend } from '../../../shared/api'
 import {
   cash,
@@ -8,7 +8,8 @@ import {
   type YearGroup,
   type ChartLayer,
 } from './model'
-import { ChartTooltip, type ChartSelection } from './ChartTooltip'
+import { ChartTooltip } from './ChartTooltip'
+import { useChartSize, useChartSelection } from './chartHooks'
 import { layoutAmountLabels } from './amountLabels'
 import { dividendAxis } from './axis'
 
@@ -20,21 +21,7 @@ interface ChartProps {
   onRecord: (record: EastmoneyDividend) => void
 }
 export function AnnualChart(props: ChartProps) {
-  const [size, setSize] = useState({ width: 0, height: 0 })
-  const measure = useCallback((node: HTMLDivElement | null) => {
-    if (!node) return
-    const update = ({ width, height }: { width: number; height: number }) => {
-      setSize((previous) =>
-        previous.width === width && previous.height === height
-          ? previous
-          : { width, height },
-      )
-    }
-    update(node.getBoundingClientRect())
-    const observer = new ResizeObserver(([entry]) => update(entry.contentRect))
-    observer.observe(node)
-    return () => observer.disconnect()
-  }, [])
+  const { size, measure } = useChartSize()
   const scope = props.groups.map((group) => group.year).join(',')
   return (
     <div className="annual-chart" ref={measure}>
@@ -58,57 +45,12 @@ function ChartPlot({
   width,
   canvasHeight,
 }: ChartProps & { width: number; canvasHeight: number }) {
-  const root = useRef<HTMLDivElement>(null)
-  const [active, setActive] = useState<
-    | (ChartSelection & {
-        width: number
-        canvasHeight: number
-        groups: YearGroup[]
-      })
-    | null
-  >(null)
-  // Invalidate transient selection before painting changed geometry or refreshed data.
-  // Keep the SVG mounted; persistent legend emphasis is owned by the page.
-  if (
-    active &&
-    (active.width !== width ||
-      active.canvasHeight !== canvasHeight ||
-      active.groups !== groups)
-  ) {
-    setActive(null)
-  }
-  const hide = useCallback(() => setActive(null), [])
-  function select(node: EventTarget | null) {
-    const target =
-      node instanceof Element
-        ? node.closest<SVGElement>('[data-chart-target]')
-        : null
-    const mode = target?.getAttribute('data-chart-target')
-    const next =
-      target &&
-      root.current?.contains(target) &&
-      (mode === 'year' || mode === 'record')
-        ? {
-            target,
-            mode: mode as ChartSelection['mode'],
-            text: target.getAttribute('data-tooltip') ?? '',
-            width,
-            canvasHeight,
-            groups,
-          }
-        : null
-    setActive((previous) =>
-      previous?.target === next?.target ? previous : next,
-    )
-  }
-  useEffect(() => {
-    window.addEventListener('scroll', hide, true)
-    window.addEventListener('resize', hide)
-    return () => {
-      window.removeEventListener('scroll', hide, true)
-      window.removeEventListener('resize', hide)
-    }
-  }, [hide])
+  const { root, active, select, hide } = useChartSelection(
+    width,
+    canvasHeight,
+    groups,
+    ['year', 'record'],
+  )
   const [left, setLeft] = useState(0)
   const bottom = canvasHeight - 52,
     plotTop = 24,
@@ -219,7 +161,7 @@ function ChartPlot({
         viewBox={`0 0 ${width} ${canvasHeight}`}
         height={canvasHeight}
         role="group"
-        aria-label="年度已实施合计与各次现金分红，共用金额刻度"
+        aria-label="年度已实施合计与各次现金分红，共用金额刻度，单位为元每股，税前"
       >
         <g visibility="hidden" aria-hidden="true" pointerEvents="none">
           {axis.ticks.map((tick) => (
@@ -239,6 +181,9 @@ function ChartPlot({
             </text>
           ))}
         </g>
+        <text className="chart-axis-label" x={left} y={13}>
+          元 / 股
+        </text>
         {axis.ticks.map((tick) => {
           const y = bottom - (plotHeight * tick.value) / ceiling
           return (

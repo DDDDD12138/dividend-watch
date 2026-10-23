@@ -7,10 +7,13 @@ import {
   useState,
 } from 'react'
 import { Link, useParams } from 'react-router'
-import type { EastmoneyDividend } from '../../../shared/api'
-import { useDividends } from '../../data/api'
+import type { AllocationHistory, EastmoneyDividend } from '../../../shared/api'
+import { useDividends, useResource } from '../../data/api'
 import { timeLabel } from '../../lib/format'
 import { AnnualChart } from './AnnualChart'
+import { HistoryRanges } from './HistoryRanges'
+import { AllocationPanel } from './AllocationPanel'
+import type { AllocationLayer } from './AllocationChart'
 import { RecordDialog } from './RecordDialog'
 import { YearSection } from './YearSection'
 import {
@@ -40,7 +43,20 @@ function CompanyDividends({ code }: { code: string }) {
   const resource = useDividends(code, revision)
   const history = resource.response?.data
   const [range, setRange] = useState<HistoryRange>('5')
+  const [chartView, setChartView] = useState<'dividend' | 'allocation'>(
+    'dividend',
+  )
+  const [allocationRequested, setAllocationRequested] = useState(false)
+  const allocations = useResource<AllocationHistory>(
+    allocationRequested ? `/api/companies/${code}/allocations` : null,
+    revision,
+  )
+  const refreshing =
+    chartView === 'dividend' ? resource.loading : allocations.loading
+  const company = history?.company ?? allocations.response?.data.company
   const [emphasis, setEmphasis] = useState<ChartLayer | null>(null)
+  const [allocationEmphasis, setAllocationEmphasis] =
+    useState<AllocationLayer | null>(null)
   const [expanded, setExpanded] = useState<Record<string, boolean>>({})
   const [selected, setSelected] = useState<{
     record: EastmoneyDividend
@@ -53,13 +69,11 @@ function CompanyDividends({ code }: { code: string }) {
     window.scrollTo({ top: 0, behavior: 'instant' })
   }, [])
   useEffect(() => {
-    document.title = history
-      ? `${history.company.name} · 分红记录`
-      : `${code} · 分红记录`
+    document.title = `${company?.name ?? code} · 分红记录`
     return () => {
       document.title = '股息观察'
     }
-  }, [code, history])
+  }, [code, company])
   const register = useCallback((id: string, node: HTMLDivElement | null) => {
     if (!node) {
       scrollers.current.delete(id)
@@ -111,7 +125,10 @@ function CompanyDividends({ code }: { code: string }) {
   }
   function focusYear(year: number) {
     const id = `year-${year}`
-    if (!ids.includes(id)) return
+    if (!ids.includes(id)) {
+      if (!history?.records.some((record) => record.fiscalYear === year)) return
+      setRange('all')
+    }
     onOpen(id, true)
     requestAnimationFrame(() => {
       const element = document.getElementById(id)
@@ -151,158 +168,184 @@ function CompanyDividends({ code }: { code: string }) {
         <div>
           <p className="history-eyebrow">DIVIDEND HISTORY</p>
           <h1>
-            {history?.company.name ?? code}
+            {company?.name ?? code}
             <span>分红记录</span>
           </h1>
           <p className="history-muted">
             {code}
-            {history ? ` · ${marketNames[history.company.market]}` : ''} ·
-            人民币 / 股 · 税前
+            {company ? ` · ${marketNames[company.market]}` : ''} · 人民币 · 税前
           </p>
         </div>
         <button
           className="history-button history-refresh"
-          disabled={resource.loading}
+          disabled={refreshing}
           onClick={() => setRevision((value) => value + 1)}
         >
-          {resource.loading ? '加载中…' : '刷新'}
+          {refreshing ? '加载中…' : '刷新'}
         </button>
       </header>
-      {resource.error && (
+      <section className="history-panel" aria-label="历年分红与盈利图表">
+        <div className="history-section-heading">
+          <div
+            className="history-view-switch"
+            role="group"
+            aria-label="图表内容"
+          >
+            <button
+              type="button"
+              aria-pressed={chartView === 'dividend'}
+              onClick={() => setChartView('dividend')}
+            >
+              每股分红
+            </button>
+            <button
+              type="button"
+              aria-pressed={chartView === 'allocation'}
+              onClick={() => {
+                setAllocationRequested(true)
+                setChartView('allocation')
+              }}
+            >
+              盈利与分配
+            </button>
+          </div>
+          <HistoryRanges value={range} onChange={setRange} />
+        </div>
+        {chartView === 'allocation' ? (
+          <AllocationPanel
+            resource={allocations}
+            range={range}
+            history={history}
+            onYear={focusYear}
+            emphasis={allocationEmphasis}
+            onEmphasis={setAllocationEmphasis}
+          />
+        ) : !history ? (
+          <div className="annual-chart">
+            <div className="chart-empty">
+              {resource.loading ? (
+                <p role="status">正在加载分红记录…</p>
+              ) : (
+                <p className="history-warning" role="alert">
+                  分红记录加载失败。{resource.error}
+                </p>
+              )}
+            </div>
+          </div>
+        ) : view!.chart.length ? (
+          <>
+            <div className="history-chart-toolbar">
+              <div
+                className="chart-legend"
+                role="group"
+                aria-label="图表观察重点"
+              >
+                <button
+                  type="button"
+                  aria-pressed={emphasis === 'year'}
+                  onClick={() =>
+                    setEmphasis((previous) =>
+                      previous === 'year' ? null : 'year',
+                    )
+                  }
+                >
+                  <i className="legend-total" aria-hidden="true" />
+                  年度已实施合计
+                </button>
+                <button
+                  type="button"
+                  aria-pressed={emphasis === 'record'}
+                  onClick={() =>
+                    setEmphasis((previous) =>
+                      previous === 'record' ? null : 'record',
+                    )
+                  }
+                >
+                  <i className="legend-record" aria-hidden="true" />
+                  单次实施记录
+                </button>
+              </div>
+              <span className="history-range-dates">
+                {view!.chart[0].year} — {view!.chart.at(-1)!.year}
+              </span>
+            </div>
+            <AnnualChart
+              emphasis={emphasis}
+              groups={view!.chart}
+              summaries={history.annualSummaries}
+              onYear={focusYear}
+              onRecord={openRecord}
+            />
+          </>
+        ) : (
+          <p className="history-muted">
+            暂无已结束财年的分红数据，已公布记录见下方。
+          </p>
+        )}
+      </section>
+      {resource.error && (history || chartView === 'allocation') && (
         <p className="history-warning" role="alert">
-          {history ? '刷新失败，当前保留上次数据。' : ''}
+          {history
+            ? '分红记录刷新失败，当前保留上次数据。'
+            : '分红记录加载失败。'}
           {resource.error}
         </p>
       )}
-      {!history && resource.loading && (
-        <div className="history-empty" role="status">
-          正在加载分红记录…
-        </div>
+      {history && !history.coverage.completeFetch && (
+        <p className="history-warning">
+          部分分红明细未能获取，每股分红合计暂不可用。
+        </p>
+      )}
+      {!history && chartView === 'allocation' && resource.loading && (
+        <p className="history-muted" role="status">
+          分红明细加载中…
+        </p>
       )}
       {history && (
         <>
-          {!history.coverage.completeFetch && (
-            <p className="history-warning">
-              部分分红记录未能获取，年度合计暂不可用。
-            </p>
-          )}
-          {!history.records.length ? (
-            <div className="history-empty">
+          {history.records.length ? (
+            <section
+              className="history-records"
+              aria-labelledby="records-title"
+            >
+              <div className="history-section-heading">
+                <h2 id="records-title">每一次分红</h2>
+                <button
+                  className="history-button"
+                  onClick={() =>
+                    setExpanded((previous) => ({
+                      ...previous,
+                      ...Object.fromEntries(ids.map((id) => [id, !allOpen])),
+                    }))
+                  }
+                >
+                  {allOpen ? '收起全部' : '展开全部'}
+                </button>
+              </div>
+              <div ref={groupsRoot}>
+                {view!.recent.map(section)}
+                {view!.historical.map(section)}
+                {view!.unassigned.length > 0 && (
+                  <YearSection
+                    id="year-unassigned"
+                    currentYear={view!.currentYear}
+                    title="报告期待确认"
+                    records={view!.unassigned}
+                    open={expanded['year-unassigned'] ?? true}
+                    onOpen={onOpen}
+                    reference={false}
+                    onRecord={openRecord}
+                    register={register}
+                    synchronize={synchronize}
+                  />
+                )}
+              </div>
+            </section>
+          ) : (
+            <div className="history-empty history-records">
               <h2>暂无分红记录</h2>
               <p className="history-muted">来源暂未提供这家公司的分红记录。</p>
             </div>
-          ) : (
-            <>
-              <section className="history-panel" aria-labelledby="annual-title">
-                <div className="history-section-heading">
-                  <h2 id="annual-title">历年分红</h2>
-                  <div className="history-range-tools">
-                    {!!view!.chart.length && (
-                      <span className="history-range-dates">
-                        {view!.chart[0].year} — {view!.chart.at(-1)!.year}
-                      </span>
-                    )}
-                    <div
-                      className="history-ranges"
-                      role="group"
-                      aria-label="分红时间范围"
-                    >
-                      {(['5', '10', 'all'] as const).map((value) => (
-                        <button
-                          key={value}
-                          aria-pressed={range === value}
-                          onClick={() => setRange(value)}
-                        >
-                          {value === 'all' ? '全部' : `近 ${value} 年`}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-                {view!.chart.length ? (
-                  <>
-                    <div
-                      className="chart-legend"
-                      role="group"
-                      aria-label="图表观察重点"
-                    >
-                      <button
-                        type="button"
-                        aria-pressed={emphasis === 'year'}
-                        onClick={() =>
-                          setEmphasis((previous) =>
-                            previous === 'year' ? null : 'year',
-                          )
-                        }
-                      >
-                        <i className="legend-total" aria-hidden="true" />
-                        年度已实施合计
-                      </button>
-                      <button
-                        type="button"
-                        aria-pressed={emphasis === 'record'}
-                        onClick={() =>
-                          setEmphasis((previous) =>
-                            previous === 'record' ? null : 'record',
-                          )
-                        }
-                      >
-                        <i className="legend-record" aria-hidden="true" />
-                        单次实施记录
-                      </button>
-                    </div>
-                    <AnnualChart
-                      emphasis={emphasis}
-                      groups={view!.chart}
-                      summaries={history.annualSummaries}
-                      onYear={focusYear}
-                      onRecord={openRecord}
-                    />
-                  </>
-                ) : (
-                  <p className="history-muted">
-                    暂无已结束财年的分红数据，已公布记录见下方。
-                  </p>
-                )}
-              </section>
-              <section
-                className="history-records"
-                aria-labelledby="records-title"
-              >
-                <div className="history-section-heading">
-                  <h2 id="records-title">每一次分红</h2>
-                  <button
-                    className="history-button"
-                    onClick={() =>
-                      setExpanded((previous) => ({
-                        ...previous,
-                        ...Object.fromEntries(ids.map((id) => [id, !allOpen])),
-                      }))
-                    }
-                  >
-                    {allOpen ? '收起全部' : '展开全部'}
-                  </button>
-                </div>
-                <div ref={groupsRoot}>
-                  {view!.recent.map(section)}
-                  {view!.historical.map(section)}
-                  {view!.unassigned.length > 0 && (
-                    <YearSection
-                      id="year-unassigned"
-                      currentYear={view!.currentYear}
-                      title="报告期待确认"
-                      records={view!.unassigned}
-                      open={expanded['year-unassigned'] ?? true}
-                      onOpen={onOpen}
-                      reference={false}
-                      onRecord={openRecord}
-                      register={register}
-                      synchronize={synchronize}
-                    />
-                  )}
-                </div>
-              </section>
-            </>
           )}
           <footer className="history-footer">
             <span>

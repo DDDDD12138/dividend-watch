@@ -87,3 +87,23 @@ export interface DividendHistory {
     completeFetch: boolean
   }
 }
+
+/** Same-fiscal-year amounts from Eastmoney's annual dividend statistics, in CNY. */
+export interface AnnualAllocation {
+  fiscalYear: number
+  netProfit: string | null
+  cashDividend: string | null
+  issues: Issue[]
+}
+export interface AllocationHistory {
+  company: Company
+  source: 'eastmoney'
+  sourceUrl: string
+  years: AnnualAllocation[]
+  coverage: {
+    fetchedRecords: number
+    returnedRecords: number
+    pagesRead: number
+    completeFetch: boolean
+  }
+}

@@ -71,7 +71,11 @@ export function StockRow({
   return (
     <tr>
       <th scope="row" className="company-cell">
-        <strong>{quote?.name ?? name ?? data?.company.name ?? code}</strong>
+        <strong>
+          <Link className="company-name-link" to={`/dividends/${code}`}>
+            {quote?.name ?? name ?? data?.company.name ?? code}
+          </Link>
+        </strong>
         <span className="secondary">{code}</span>
       </th>
       <td className="trend-cell">

@@ -1,0 +1,116 @@
+import { useMemo, useState } from 'react'
+import type { AllocationHistory, DividendHistory } from '../../../shared/api'
+import type { Resource } from '../../data/api'
+import { AllocationChart, type AllocationLayer } from './AllocationChart'
+import { AllocationDialog, type AllocationSelection } from './AllocationDialog'
+import { allocationView } from './allocationModel'
+import type { HistoryRange } from './model'
+
+export function AllocationPanel({
+  resource,
+  range,
+  history,
+  onYear,
+  emphasis,
+  onEmphasis,
+}: {
+  resource: Resource<AllocationHistory>
+  range: HistoryRange
+  history?: DividendHistory
+  onYear: (year: number) => void
+  emphasis: AllocationLayer | null
+  onEmphasis: (layer: AllocationLayer | null) => void
+}) {
+  const data = resource.response?.data
+  const points = useMemo(
+    () => (data ? allocationView(data, range) : []),
+    [data, range],
+  )
+  const [selected, setSelected] = useState<AllocationSelection | null>(null)
+  const refreshError = resource.error && points.length > 0
+  const notice = refreshError
+    ? '年度统计更新失败，保留上次结果'
+    : data && !data.coverage.completeFetch
+      ? '年度统计不完整，缺失年份保持未知'
+      : null
+  return (
+    <>
+      <div className="history-chart-toolbar">
+        <div
+          className="chart-legend"
+          role="group"
+          aria-label="盈利与分配观察重点"
+        >
+          {(
+            [
+              ['profit', 'legend-total', '归母净利润'],
+              ['cash', 'legend-record', '现金分红'],
+            ] as const
+          ).map(([layer, className, label]) => (
+            <button
+              key={layer}
+              type="button"
+              disabled={!points.length}
+              aria-pressed={emphasis === layer}
+              onClick={() => onEmphasis(emphasis === layer ? null : layer)}
+            >
+              <i className={className} aria-hidden="true" />
+              {label}
+            </button>
+          ))}
+        </div>
+        {points.length > 0 && (
+          <span className="history-range-dates">
+            {points[0].year} — {points.at(-1)!.year}
+          </span>
+        )}
+      </div>
+      <AllocationChart
+        points={points}
+        emphasis={emphasis}
+        emptyContent={
+          resource.loading ? (
+            <p role="status">正在加载年度盈利与分红统计…</p>
+          ) : resource.error ? (
+            <p className="history-warning" role="alert">
+              {resource.error}
+            </p>
+          ) : (
+            <p>来源暂无已结束财年的盈利与分红统计。</p>
+          )
+        }
+        onSelect={(point) =>
+          setSelected({
+            point,
+            fetchedAt: resource.response!.meta.fetchedAt,
+          })
+        }
+      />
+      {notice && (
+        <p
+          className="allocation-notice history-warning"
+          role={refreshError ? 'alert' : 'status'}
+          title={refreshError ? resource.error : undefined}
+        >
+          {notice}
+        </p>
+      )}
+      {selected && (
+        <AllocationDialog
+          selection={selected}
+          onClose={() => setSelected(null)}
+          dividend={history?.annualSummaries.find(
+            (row) => row.fiscalYear === selected.point.year,
+          )}
+          onYear={
+            history?.records.some(
+              (row) => row.fiscalYear === selected.point.year,
+            )
+              ? onYear
+              : undefined
+          }
+        />
+      )}
+    </>
+  )
+}
