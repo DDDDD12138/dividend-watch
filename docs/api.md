@@ -126,9 +126,9 @@ pnpm build
 - `recordId` 仅用于当前响应内交互，不作为可跨刷新持久访问的记录 URL。单次记录弹窗保留打开时的记录与获取时间。
 - `sourceUrl` 是数据接口地址，不作为公告原文链接。派息日和公告原文暂不展示；额外说明收于页脚“数据说明”。
 
-## 年度盈利与分配
+## 年度分红比例
 
-`GET /api/companies/:code/allocations` 返回 `{ data: AllocationHistory, meta }`。使用相同的 A 股身份解析与错误响应规则，独立于分红明细加载；前端首次选择“盈利与分配”时请求，并在本次公司详情访问期间保留请求状态；同页切换不重复请求，手动刷新重新获取。离开详情页后释放，不写入浏览器存储，不增加首页逐公司请求。加载、空结果和首次失败共用图表与比例区域的布局，避免加载完成前后高度跳变。
+`GET /api/companies/:code/allocations` 返回 `{ data: AllocationHistory, meta }`。使用相同的 A 股身份解析与错误响应规则，独立于分红明细加载；前端首次选择“分红比例”时请求，并在本次公司详情访问期间保留请求状态；同页切换不重复请求，手动刷新重新获取。离开详情页后释放，不写入浏览器存储，不增加首页逐公司请求。加载、空结果和首次失败共用图表与比例区域的布局，避免加载完成前后高度跳变。
 
 来源为东方财富 `RPT_F10_DIVIDEND_HISTOGRAM`，地址 `https://datacenter.eastmoney.com/securities/api/data/v1/get`，按完整 `SECUCODE` 过滤。字段含义依据东方财富 [F10 分红融资页面](https://emweb.securities.eastmoney.com/pc_hsf10/pages/index.html?type=web&code=SH601939#/fhrz)的年度统计实现，并通过实际响应核对。
 

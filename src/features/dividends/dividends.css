@@ -298,7 +298,24 @@
 .history-records > .history-section-heading {
   margin-bottom: var(--space-4);
 }
+.history-expand-all {
+  min-height: 44px;
+  padding: var(--space-2) var(--space-3);
+  border: 0;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--color-primary);
+  font-size: var(--font-size-sm);
+  white-space: nowrap;
+  cursor: pointer;
+}
+.history-expand-all:hover {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
 .dividend-year {
+  --year-padding-inline: var(--space-5);
+  --year-chevron-size: 6px;
   margin-bottom: var(--space-3);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
@@ -310,22 +327,30 @@
   display: flex;
   align-items: center;
   gap: var(--space-3);
-  padding: var(--space-4) var(--space-6);
+  padding: var(--space-4) var(--year-padding-inline);
   cursor: pointer;
   list-style: none;
 }
 .dividend-year summary::-webkit-details-marker {
   display: none;
 }
-.dividend-year summary::after {
-  content: '+';
-  color: var(--color-text-muted);
+.dividend-year[data-current-year='true'] > summary {
+  background: var(--color-surface-subtle);
 }
-.dividend-year[open] summary::after {
-  content: '−';
+.year-chevron {
+  width: var(--year-chevron-size);
+  height: var(--year-chevron-size);
+  flex-shrink: 0;
+  border-right: 1.5px solid var(--color-text-muted);
+  border-bottom: 1.5px solid var(--color-text-muted);
+  transform: rotate(-45deg);
 }
-.dividend-year summary > div {
+.dividend-year[open] .year-chevron {
+  transform: translateY(-2px) rotate(45deg);
+}
+.year-title {
   display: flex;
+  min-width: 0;
   align-items: baseline;
   flex-wrap: wrap;
   gap: var(--space-2) var(--space-3);
@@ -378,6 +403,11 @@
   text-align: left;
   padding: var(--space-3) var(--space-5);
   border-top: 1px solid var(--color-border);
+}
+.dividend-table tr > :first-child {
+  padding-left: calc(
+    var(--year-padding-inline) + var(--year-chevron-size) + var(--space-3)
+  );
 }
 .dividend-table thead th {
   font-size: var(--font-size-xs);
@@ -537,14 +567,19 @@ body:has(.record-dialog[open]) {
   .history-ranges button {
     padding-inline: 9px;
   }
-  .dividend-year summary {
-    padding: var(--space-4);
-    gap: var(--space-2);
+  .dividend-year {
+    --year-padding-inline: var(--space-4);
   }
-  .dividend-year summary > div {
+  .year-chevron {
+    display: none;
+  }
+  .dividend-table tr > :first-child {
+    padding-left: var(--year-padding-inline);
+  }
+  .year-title {
     gap: var(--space-1) var(--space-2);
   }
-  .dividend-year summary strong {
+  .year-title strong {
     flex-basis: 100%;
   }
   .year-value {

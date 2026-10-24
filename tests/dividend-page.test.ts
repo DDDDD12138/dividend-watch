@@ -82,9 +82,9 @@ describe('independent dividend detail views', () => {
       const html = renderPage()
       expect(html).toContain('aria-label="图表内容"')
       expect(html).toContain('每股分红</button>')
-      expect(html).toContain('盈利与分配</button>')
+      expect(html).toContain('分红比例</button>')
       const allocationSwitch = html.match(
-        /<button[^>]*>盈利与分配<\/button>/,
+        /<button[^>]*>分红比例<\/button>/,
       )?.[0]
       expect(allocationSwitch).toBeDefined()
       expect(allocationSwitch).not.toContain('disabled')

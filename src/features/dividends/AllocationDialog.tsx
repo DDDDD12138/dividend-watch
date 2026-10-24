@@ -39,7 +39,7 @@ export function AllocationDialog({
       }}
     >
       <div className="record-dialog-heading">
-        <h2 id={title}>{point.year} 财年 · 盈利与分配</h2>
+        <h2 id={title}>{point.year} 财年 · 分红比例</h2>
         <button
           className="history-button"
           onClick={onClose}
@@ -131,7 +131,7 @@ export function AllocationDialog({
               className="history-button"
               onClick={() => {
                 onClose()
-                requestAnimationFrame(() => onYear(point.year))
+                onYear(point.year)
               }}
             >
               查看当年分红记录 →

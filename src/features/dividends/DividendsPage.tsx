@@ -15,7 +15,7 @@ import { HistoryRanges } from './HistoryRanges'
 import { AllocationPanel } from './AllocationPanel'
 import type { AllocationLayer } from './AllocationChart'
 import { RecordDialog } from './RecordDialog'
-import { YearSection } from './YearSection'
+import { YearSection, type YearSectionHandle } from './YearSection'
 import {
   historyView,
   marketNames,
@@ -58,13 +58,20 @@ function CompanyDividends({ code }: { code: string }) {
   const [allocationEmphasis, setAllocationEmphasis] =
     useState<AllocationLayer | null>(null)
   const [expanded, setExpanded] = useState<Record<string, boolean>>({})
+  const [navigation, setNavigation] = useState<{ year: number } | null>(null)
   const [selected, setSelected] = useState<{
     record: EastmoneyDividend
     fetchedAt: string
   } | null>(null)
-  const scrollers = useRef(new Map<string, HTMLDivElement>())
+  const sections = useRef(new Map<string, YearSectionHandle>())
   const progress = useRef(0)
-  const groupsRoot = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    if (!navigation) return
+    // Run after the year is rendered/expanded and any dialog has closed.
+    const section = sections.current.get(`year-${navigation.year}`)
+    section?.reveal()
+    return () => section?.clearHighlight()
+  }, [navigation])
   useLayoutEffect(() => {
     window.scrollTo({ top: 0, behavior: 'instant' })
   }, [])
@@ -74,32 +81,23 @@ function CompanyDividends({ code }: { code: string }) {
       document.title = '股息观察'
     }
   }, [code, company])
-  const register = useCallback((id: string, node: HTMLDivElement | null) => {
-    if (!node) {
-      scrollers.current.delete(id)
-      return
-    }
-    scrollers.current.set(id, node)
-    node.scrollLeft =
-      progress.current * Math.max(0, node.scrollWidth - node.clientWidth)
-  }, [])
-  const synchronize = useCallback((source: HTMLDivElement) => {
-    const width = source.scrollWidth - source.clientWidth
-    if (width <= 0 || source.clientWidth === 0) return
-    const ratio = source.scrollLeft / width
+  const register = useCallback(
+    (id: string, section: YearSectionHandle | null) => {
+      if (!section) return
+      sections.current.set(id, section)
+      section.setScrollProgress(progress.current)
+      return () => {
+        sections.current.delete(id)
+      }
+    },
+    [],
+  )
+  const synchronize = useCallback((source: string, ratio: number) => {
     if (Math.abs(ratio - progress.current) < 0.002) return
     progress.current = ratio
-    for (const node of scrollers.current.values())
-      if (node !== source && node.clientWidth > 0)
-        node.scrollLeft = ratio * (node.scrollWidth - node.clientWidth)
+    for (const [id, section] of sections.current)
+      if (id !== source) section.setScrollProgress(ratio)
   }, [])
-  useEffect(() => {
-    const observer = new ResizeObserver(() => {
-      for (const [id, node] of scrollers.current) register(id, node)
-    })
-    if (groupsRoot.current) observer.observe(groupsRoot.current)
-    return () => observer.disconnect()
-  }, [history, register])
   const onOpen = useCallback(
     (id: string, open: boolean) =>
       setExpanded((previous) =>
@@ -130,22 +128,14 @@ function CompanyDividends({ code }: { code: string }) {
       setRange('all')
     }
     onOpen(id, true)
-    requestAnimationFrame(() => {
-      const element = document.getElementById(id)
-      element?.scrollIntoView({
-        behavior: matchMedia('(prefers-reduced-motion: reduce)').matches
-          ? 'instant'
-          : 'smooth',
-        block: 'start',
-      })
-      element?.querySelector('summary')?.focus({ preventScroll: true })
-    })
+    setNavigation({ year })
   }
   function section(group: YearGroup) {
     const id = `year-${group.year}`
     return (
       <YearSection
         key={id}
+        ref={(section) => register(id, section)}
         id={id}
         group={group}
         currentYear={view!.currentYear}
@@ -154,8 +144,7 @@ function CompanyDividends({ code }: { code: string }) {
         onOpen={onOpen}
         reference={history?.referenceDividend?.fiscalYear === group.year}
         onRecord={openRecord}
-        register={register}
-        synchronize={synchronize}
+        onScrollProgress={synchronize}
       />
     )
   }
@@ -206,7 +195,7 @@ function CompanyDividends({ code }: { code: string }) {
                 setChartView('allocation')
               }}
             >
-              盈利与分配
+              分红比例
             </button>
           </div>
           <HistoryRanges value={range} onChange={setRange} />
@@ -311,7 +300,8 @@ function CompanyDividends({ code }: { code: string }) {
               <div className="history-section-heading">
                 <h2 id="records-title">每一次分红</h2>
                 <button
-                  className="history-button"
+                  type="button"
+                  className="history-expand-all"
                   onClick={() =>
                     setExpanded((previous) => ({
                       ...previous,
@@ -322,11 +312,12 @@ function CompanyDividends({ code }: { code: string }) {
                   {allOpen ? '收起全部' : '展开全部'}
                 </button>
               </div>
-              <div ref={groupsRoot}>
+              <div>
                 {view!.recent.map(section)}
                 {view!.historical.map(section)}
                 {view!.unassigned.length > 0 && (
                   <YearSection
+                    ref={(section) => register('year-unassigned', section)}
                     id="year-unassigned"
                     currentYear={view!.currentYear}
                     title="报告期待确认"
@@ -335,8 +326,7 @@ function CompanyDividends({ code }: { code: string }) {
                     onOpen={onOpen}
                     reference={false}
                     onRecord={openRecord}
-                    register={register}
-                    synchronize={synchronize}
+                    onScrollProgress={synchronize}
                   />
                 )}
               </div>

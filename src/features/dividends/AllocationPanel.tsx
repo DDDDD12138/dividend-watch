@@ -39,7 +39,7 @@ export function AllocationPanel({
         <div
           className="chart-legend"
           role="group"
-          aria-label="盈利与分配观察重点"
+          aria-label="分红比例观察重点"
         >
           {(
             [
