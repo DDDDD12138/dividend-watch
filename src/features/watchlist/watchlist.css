@@ -163,18 +163,15 @@
   font-size: var(--font-size-sm);
   font-variant-numeric: tabular-nums;
 }
-.col-company {
-  width: 13%;
+.col-dividend {
+  width: clamp(13cqw, 9.75rem, 14.772727cqw);
 }
 .col-trend {
-  width: 28%;
-}
-.col-dividend {
-  width: 13%;
+  width: max(10rem, clamp(18.181818cqw, calc(100cqw - 54rem), 28cqw));
 }
 .col-target,
 .col-gap {
-  width: 11%;
+  width: clamp(11cqw, 8.25rem, 12.5cqw);
 }
 .stock-table thead {
   background: var(--color-surface-subtle);
@@ -413,6 +410,56 @@ body:has(.add-dialog[open]) {
   clip-path: inset(50%);
   white-space: nowrap;
   border: 0;
+}
+@media (min-width: 761px) {
+  .watchlist-surface {
+    container-type: inline-size;
+  }
+  /* At 75rem the original column ratios apply. Until 66rem only the
+     trend column contracts; below that the table tightens to readable limits. */
+  .stock-table {
+    --table-unit: min(1rem, 1.515152cqw);
+    --table-inline-space: clamp(
+      var(--space-2),
+      calc(5cqw - 2.3rem),
+      var(--space-4)
+    );
+    --company-name-size: clamp(
+      var(--font-size-base),
+      calc(var(--table-unit) * 1.125),
+      var(--font-size-lg)
+    );
+    white-space: nowrap;
+  }
+  .col-company {
+    width: max(
+      clamp(13cqw, 9.75rem, 14.772727cqw),
+      calc(var(--company-name-size) * 6 + var(--table-inline-space) * 2)
+    );
+  }
+  .stock-table th,
+  .stock-table td {
+    padding-inline: var(--table-inline-space);
+  }
+  .stock-table thead th,
+  .stock-table :is(.secondary, .gap-label, .status-badge, .row-status) {
+    font-size: var(--font-size-xs);
+  }
+  .stock-table .company-cell strong {
+    font-size: var(--company-name-size);
+  }
+  .stock-table .gap-cell strong {
+    font-size: max(var(--font-size-base), calc(var(--table-unit) * 1.125));
+  }
+  .stock-table .money-value {
+    font-size: max(var(--font-size-base), calc(var(--table-unit) * 1.25));
+  }
+  .stock-table .yield-value {
+    font-size: max(var(--font-size-xl), calc(var(--table-unit) * 1.5));
+  }
+  .stock-table .row-status {
+    white-space: normal;
+  }
 }
 @media (max-width: 760px) {
   .watchlist-page {
