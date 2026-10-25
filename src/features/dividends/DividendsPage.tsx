@@ -10,6 +10,7 @@ import { Link, useParams } from 'react-router'
 import type { AllocationHistory, EastmoneyDividend } from '../../../shared/api'
 import { useDividends, useResource } from '../../data/api'
 import { timeLabel } from '../../lib/format'
+import type { HistoryRange } from '../../lib/historyYears'
 import { AnnualChart } from './AnnualChart'
 import { HistoryRanges } from './HistoryRanges'
 import { AllocationPanel } from './AllocationPanel'
@@ -19,7 +20,6 @@ import { YearSection, type YearSectionHandle } from './YearSection'
 import {
   historyView,
   marketNames,
-  type HistoryRange,
   type ChartLayer,
   type YearGroup,
 } from './model'
@@ -142,7 +142,10 @@ function CompanyDividends({ code }: { code: string }) {
         title={`${group.year} 财年`}
         open={expanded[id] ?? true}
         onOpen={onOpen}
-        reference={history?.referenceDividend?.fiscalYear === group.year}
+        reference={
+          history?.referenceDividend.cashPerShare != null &&
+          history.referenceDividend.fiscalYear === group.year
+        }
         onRecord={openRecord}
         onScrollProgress={synchronize}
       />
@@ -274,10 +277,9 @@ function CompanyDividends({ code }: { code: string }) {
       </section>
       {resource.error && (history || chartView === 'allocation') && (
         <p className="history-warning" role="alert">
-          {history
-            ? '分红记录刷新失败，当前保留上次数据。'
-            : '分红记录加载失败。'}
-          {resource.error}
+          {resource.response
+            ? '分红记录更新失败'
+            : `分红记录加载失败。${resource.error}`}
         </p>
       )}
       {history && !history.coverage.completeFetch && (
@@ -344,11 +346,9 @@ function CompanyDividends({ code }: { code: string }) {
             <details>
               <summary>数据说明</summary>
               <p>
-                按报告期归属财年，仅来源进度为“实施分配”的记录计入合计，不表示款项已到账。记录按除权除息日排序，缺失日期置后；未结束财年保留在明细中。金额未知显示“—”，明确为零才显示零。
+                按报告期归属财年，仅统计已实施的现金分红，不表示款项已到账。金额未知显示“—”，明确为零才显示零。
               </p>
-              <p>
-                图表展示原始每股金额，不做复权。存在已知送转问题的年度不展示同比，也不作为首页目标价参考。来源未提供派息日和公告原文链接。
-              </p>
+              <p>图表展示原始每股金额，不做复权。</p>
             </details>
           </footer>
         </>

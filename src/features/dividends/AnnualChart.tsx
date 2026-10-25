@@ -208,14 +208,19 @@ function ChartPlot({
             <g key={group.year}>
               <g
                 className="chart-year-target"
-                role="button"
-                tabIndex={0}
+                role={group.records.length ? 'button' : 'img'}
+                tabIndex={group.records.length ? 0 : undefined}
                 aria-label={text.replaceAll('\n', '，')}
                 data-chart-target="year"
                 data-tooltip={text}
-                onClick={() => onYear(group.year)}
+                onClick={
+                  group.records.length ? () => onYear(group.year) : undefined
+                }
                 onKeyDown={(event) => {
-                  if (event.key === 'Enter' || event.key === ' ') {
+                  if (
+                    group.records.length &&
+                    (event.key === 'Enter' || event.key === ' ')
+                  ) {
                     event.preventDefault()
                     hide()
                     onYear(group.year)

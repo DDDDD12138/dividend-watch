@@ -12,6 +12,7 @@ import { fetchDividends } from './providers/eastmoney'
 import { allocationUrl, fetchAllocations } from './providers/allocations'
 import type { Fetcher } from './providers/http'
 import { buildHistory } from './services/history'
+import { chinaYear } from '../shared/time'
 import { SourceCache, type ResponseCache } from './services/cache'
 import { companyService, CompanyNotFound } from './services/companies'
 
@@ -296,6 +297,7 @@ export function createApp(
           company,
           source: 'eastmoney',
           sourceUrl: allocationUrl,
+          lastEndedYear: chinaYear(now()) - 1,
           years: value.years,
           coverage: value.coverage,
         },

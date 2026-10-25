@@ -35,6 +35,7 @@ export function buildHistory(
   now: Date,
 ): DividendHistory {
   const rows = input.records
+  const currentYear = chinaYear(now)
   const years = [
     ...new Set(
       rows.flatMap((row) => (row.fiscalYear === null ? [] : [row.fiscalYear])),
@@ -46,7 +47,7 @@ export function buildHistory(
       (row) => row.progress === EASTMONEY_IMPLEMENTED_PROGRESS,
     )
     const calculationIssues: Issue[] = []
-    const ambiguous = hasAmbiguousRecords(records)
+    const ambiguous = hasAmbiguousRecords(implemented)
     const missingProgress = records.some((row) => row.progress === null)
     if (ambiguous) calculationIssues.push({ code: 'AMBIGUOUS_RECORDS' })
     if (missingProgress) calculationIssues.push({ code: 'MISSING_PROGRESS' })
@@ -62,7 +63,7 @@ export function buildHistory(
       calculationIssues.push({ code: 'MISSING_CASH_AMOUNT' })
     if (!implemented.some((row) => row.reportDate === `${year}-12-31`))
       calculationIssues.push({ code: 'NO_IMPLEMENTED_YEAR_END_REPORT' })
-    if (year >= chinaYear(now))
+    if (year >= currentYear)
       calculationIssues.push({ code: 'FISCAL_YEAR_NOT_ENDED' })
     if (
       implemented.some((row) =>
@@ -85,12 +86,32 @@ export function buildHistory(
       fiscalYear: year,
       implementedTotal,
       implementedRecordCount: implemented.length,
-      referenceEligible:
-        implementedTotal !== null && calculationIssues.length === 0,
       calculationIssues,
     }
   })
-  const reference = annualSummaries.find((year) => year.referenceEligible)
+  const referenceYear = currentYear - 1
+  const reference = annualSummaries.find(
+    (year) => year.fiscalYear === referenceYear,
+  )
+  const referenceIssues: Issue[] = reference
+    ? [...reference.calculationIssues]
+    : [
+        ...(input.completeFetch ? [] : [{ code: 'INCOMPLETE_FETCH' }]),
+        { code: 'MISSING_REFERENCE_YEAR' },
+      ]
+  // Later implemented share changes also invalidate the historical per-share basis.
+  for (const year of annualSummaries.filter(
+    (year) => year.fiscalYear > referenceYear,
+  )) {
+    for (const issue of year.calculationIssues) {
+      if (
+        (issue.code === 'SHARE_BASIS_CHANGED' ||
+          issue.code === 'INVALID_SHARE_RATIO') &&
+        !referenceIssues.some((existing) => existing.code === issue.code)
+      )
+        referenceIssues.push(issue)
+    }
+  }
   return {
     code: company.code,
     company,
@@ -98,14 +119,15 @@ export function buildHistory(
     sourceUrl: eastmoneyUrl,
     records: rows,
     annualSummaries,
-    referenceDividend:
-      reference && reference.implementedTotal !== null
-        ? {
-            fiscalYear: reference.fiscalYear,
-            cashPerShare: reference.implementedTotal,
-            basis: 'eastmoney_implemented_sum',
-          }
-        : null,
+    referenceDividend: {
+      fiscalYear: referenceYear,
+      cashPerShare:
+        reference && referenceIssues.length === 0
+          ? reference.implementedTotal
+          : null,
+      basis: 'eastmoney_implemented_sum',
+      issues: referenceIssues,
+    },
     coverage: {
       fetchedRecords: input.fetchedRecords,
       returnedRecords: rows.length,

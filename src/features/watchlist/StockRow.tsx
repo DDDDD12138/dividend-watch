@@ -1,10 +1,16 @@
-import { useEffect } from 'react'
-import type { QuoteItem } from '../../../shared/api'
+import { useEffect, useState } from 'react'
+import type { Quote, QuoteItem } from '../../../shared/api'
 import { metricsFor, recentYears } from './model'
 import { percent, timeLabel } from '../../lib/format'
 import { Link } from 'react-router'
 import { useDividends } from '../../data/api'
+import { issueText } from '../dividends/model'
 
+export interface StockRowResult {
+  revision: number
+  loading: boolean
+  yield: string | undefined
+}
 interface Props {
   code: string
   name?: string
@@ -13,8 +19,7 @@ interface Props {
   quoteError?: string
   expectedYield: string
   revision: number
-  onLoading: (code: string, revision: number, loading: boolean) => void
-  onYield: (code: string, value: string | undefined) => void
+  onResult: (code: string, result: StockRowResult) => void
 }
 export function StockRow({
   code,
@@ -24,43 +29,43 @@ export function StockRow({
   quoteError,
   expectedYield,
   revision,
-  onYield,
-  onLoading,
+  onResult,
 }: Props) {
   const history = useDividends(code, revision)
-  useEffect(() => {
-    onLoading(code, revision, history.loading)
-  }, [code, revision, history.loading, onLoading])
   const data = history.response?.data
-  const quote = item?.quote
+  const currentQuote = item?.quote
+  const validQuote =
+    currentQuote?.price && currentQuote.quoteTime ? currentQuote : null
+  // A successful batch may still contain an error for this company.
+  const [lastQuote, setLastQuote] = useState<Quote | null>(null)
+  if (validQuote && validQuote !== lastQuote) setLastQuote(validQuote)
+  const quote = validQuote ?? lastQuote
   const metrics = metricsFor(data, quote, expectedYield)
   const referenceYield = metrics?.referenceYield
+  const loading = history.loading || quoteLoading
   useEffect(() => {
-    onYield(code, referenceYield)
-  }, [code, referenceYield, onYield])
+    onResult(code, { revision, loading, yield: referenceYield })
+  }, [code, revision, loading, referenceYield, onResult])
   const years = data ? recentYears(data) : []
   const max = Math.max(...years.map((year) => Number(year.amount ?? 0)), 0)
   const reference = data?.referenceDividend
   const price = quote?.quoteTime ? quote.price : null
   const dividendStatus = history.error
     ? history.response
-      ? '更新失败 · 保留旧数据'
-      : '分红暂不可用'
-    : data && !data.coverage.completeFetch
-      ? '记录不完整'
-      : data && !data.records.length
-        ? '暂无分红记录'
-        : data && !reference
-          ? '暂无参考年度'
-          : null
+      ? '更新失败'
+      : '分红加载失败'
+    : reference?.issues[0]
+      ? issueText(reference.issues[0])
+      : null
   const quoteStatus =
-    !quoteError &&
-    !quoteLoading &&
-    (item?.error || (quote && (!quote.price || !quote.quoteTime)))
-      ? '行情暂不可用'
+    !quoteLoading && (quoteError || item?.error || !validQuote)
+      ? quote?.quoteTime
+        ? '更新失败'
+        : '行情暂不可用'
       : null
   const dividendTitle = [
-    reference ? `${reference.fiscalYear} 年税前每股分红` : '',
+    reference ? `${reference.fiscalYear} 财年税前每股已实施分红` : '',
+    ...(reference?.issues.map(issueText) ?? []),
     history.response
       ? `获取于 ${timeLabel(history.response.meta.fetchedAt)}`
       : '',
@@ -125,7 +130,7 @@ export function StockRow({
             <>
               <div className="trend" aria-hidden="true" />
               <span className="secondary">
-                {history.loading ? '加载中…' : '暂无分红数据'}
+                {history.loading ? '加载中…' : '分红加载失败'}
               </span>
             </>
           )}
@@ -133,11 +138,11 @@ export function StockRow({
       </td>
       <td
         className="dividend-cell"
-        data-label="参考年度分红"
+        data-label="上一财年分红"
         title={dividendTitle}
       >
         <strong className="money-value">
-          {reference ? `¥${reference.cashPerShare}` : '—'}
+          {reference?.cashPerShare != null ? `¥${reference.cashPerShare}` : '—'}
         </strong>
         <span className="secondary">
           {reference

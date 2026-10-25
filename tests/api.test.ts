@@ -58,7 +58,7 @@ describe('API contracts', () => {
     expect(response.headers.get('Cache-Control')).toBe('no-store')
     const body = (await response.json()) as ApiResponse<DividendHistory>
     expect(body.data.company).toEqual(bankCompanies[0])
-    expect(body.data.referenceDividend?.cashPerShare).toBe('0.3887')
+    expect(body.data.referenceDividend.cashPerShare).toBe('0.3887')
     expect(body.meta.source).toBe('eastmoney')
     expect(body.meta.issues).toEqual([])
     expect(
@@ -152,7 +152,7 @@ describe('API contracts', () => {
       expect(response.status).toBe(200)
       expect(body.data.company).toMatchObject({ code, market })
       expect(body.data.records).toEqual([])
-      expect(body.data.referenceDividend).toBeNull()
+      expect(body.data.referenceDividend.cashPerShare).toBeNull()
     },
   )
   it('keeps company, quotes and dividend caches independent', async () => {

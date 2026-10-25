@@ -12,6 +12,117 @@ async function input(code = '601939') {
   return fetchDividends(fixtureFetcher, bankIdentity(code), now)
 }
 describe('application calculations from source records', () => {
+  it.each([true, false])(
+    'reports incomplete fetching exactly once with reference-year records present=%s',
+    async (present) => {
+      const data = await input()
+      if (!present)
+        data.records = data.records.filter(
+          (record) => record.fiscalYear !== 2025,
+        )
+      data.completeFetch = false
+      const reference = buildHistory(
+        bankCompanies[0],
+        data,
+        now,
+      ).referenceDividend
+      expect(reference.cashPerShare).toBeNull()
+      expect(
+        reference.issues.filter((issue) => issue.code === 'INCOMPLETE_FETCH'),
+      ).toHaveLength(1)
+      expect(
+        reference.issues.some(
+          (issue) => issue.code === 'MISSING_REFERENCE_YEAR',
+        ),
+      ).toBe(!present)
+    },
+  )
+  it('does not treat a non-implemented revision as a duplicate implemented payment', async () => {
+    const data = await input()
+    data.records.push(
+      await normalizeRecord(bankIdentity(), {
+        ...rows()[1],
+        ASSIGN_PROGRESS: '停止实施',
+        PRETAX_BONUS_RMB: null,
+      }),
+    )
+    const history = buildHistory(bankCompanies[0], data, now)
+    expect(history.referenceDividend.cashPerShare).toBe('0.3887')
+    expect(history.referenceDividend.issues).toEqual([])
+    expect(history.records).toHaveLength(data.records.length)
+  })
+  it.each([2024, 2022, 2010])(
+    'never substitutes older dividends when the latest available year is %s',
+    async (latest) => {
+      const data = await input()
+      data.records = data.records.filter(
+        (record) => record.fiscalYear !== null && record.fiscalYear <= latest,
+      )
+      const history = buildHistory(bankCompanies[0], data, now)
+      expect(history.referenceDividend).toEqual({
+        fiscalYear: 2025,
+        cashPerShare: null,
+        basis: 'eastmoney_implemented_sum',
+        issues: [{ code: 'MISSING_REFERENCE_YEAR' }],
+      })
+      expect(
+        history.annualSummaries.some((year) => year.implementedTotal !== null),
+      ).toBe(true)
+    },
+  )
+  it('moves the reference year at the Shanghai year boundary even when the new year has no records', async () => {
+    const data = await input()
+    data.records = data.records.filter((record) => record.fiscalYear !== 2026)
+    expect(
+      buildHistory(bankCompanies[0], data, new Date('2026-12-31T15:59:59Z'))
+        .referenceDividend.cashPerShare,
+    ).toBe('0.3887')
+    expect(
+      buildHistory(bankCompanies[0], data, new Date('2026-12-31T16:00:00Z'))
+        .referenceDividend,
+    ).toMatchObject({
+      fiscalYear: 2026,
+      cashPerShare: null,
+    })
+  })
+  it.each(['董事会决议通过', '停止实施', '未识别的新进度'])(
+    'excludes progress %s from sums without blocking implemented dividends',
+    async (progress) => {
+      const data = await input()
+      data.records.find(
+        (record) => record.reportDate === '2025-06-30',
+      )!.progress = progress
+      const history = buildHistory(bankCompanies[0], data, now)
+      expect(history.referenceDividend.cashPerShare).toBe('0.2029')
+      expect(history.referenceDividend.issues).toEqual([])
+      expect(
+        history.annualSummaries.find((year) => year.fiscalYear === 2025)
+          ?.implementedTotal,
+      ).toBe('0.2029')
+      expect(
+        history.records.find((record) => record.reportDate === '2025-06-30')
+          ?.progress,
+      ).toBe(progress)
+    },
+  )
+  it('blocks previous-year valuation after a later implemented share change without erasing either annual total', async () => {
+    const data = await input()
+    const current = data.records.find((record) => record.fiscalYear === 2026)!
+    current.progress = '实施分配'
+    current.transferRatio = '1'
+    const history = buildHistory(bankCompanies[0], data, now)
+    expect(history.referenceDividend).toMatchObject({
+      fiscalYear: 2025,
+      cashPerShare: null,
+    })
+    expect(history.referenceDividend.issues).toContainEqual({
+      code: 'SHARE_BASIS_CHANGED',
+    })
+    expect(
+      history.annualSummaries.find((year) => year.fiscalYear === 2025)
+        ?.implementedTotal,
+    ).toBe('0.3887')
+  })
   it.each([
     ['601939', '0.3887'],
     ['601398', '0.3103'],
@@ -26,16 +137,17 @@ describe('application calculations from source records', () => {
       fiscalYear: 2025,
       cashPerShare: total,
       basis: 'eastmoney_implemented_sum',
+      issues: [],
     })
     expect(history.records.every((r) => r.payDate === null)).toBe(true)
     expect(
       history.annualSummaries.find((y) => y.fiscalYear === 2020)
-        ?.referenceEligible,
-    ).toBe(true)
+        ?.calculationIssues,
+    ).toEqual([])
     expect(
       history.annualSummaries.find((y) => y.fiscalYear === 2026)
-        ?.referenceEligible,
-    ).toBe(false)
+        ?.calculationIssues,
+    ).toContainEqual({ code: 'FISCAL_YEAR_NOT_ENDED' })
   })
   it('automatically selects a newly ended year, never inferring payout', async () => {
     const data = await input()
@@ -49,10 +161,10 @@ describe('application calculations from source records', () => {
     }
     expect(
       buildHistory(bankCompanies[0], data, new Date('2027-02-01T00:00:00Z'))
-        .referenceDividend?.cashPerShare,
+        .referenceDividend.cashPerShare,
     ).toBe('0.6')
     expect(
-      buildHistory(bankCompanies[0], data, now).referenceDividend,
+      buildHistory(bankCompanies[0], data, now).referenceDividend.cashPerShare,
     ).toBeNull()
   })
   it('excludes proposals and unknown progress without rewriting the text', async () => {
@@ -60,7 +172,7 @@ describe('application calculations from source records', () => {
     data.records.find((r) => r.reportDate === '2025-12-31')!.progress =
       '新进度值'
     const history = buildHistory(bankCompanies[0], data, now)
-    expect(history.referenceDividend?.fiscalYear).toBe(2024)
+    expect(history.referenceDividend.cashPerShare).toBeNull()
     expect(
       history.records.find((r) => r.reportDate === '2025-12-31')!.progress,
     ).toBe('新进度值')
@@ -79,7 +191,7 @@ describe('application calculations from source records', () => {
     })
     data.records.push(extra)
     expect(
-      buildHistory(bankCompanies[0], data, now).referenceDividend?.cashPerShare,
+      buildHistory(bankCompanies[0], data, now).referenceDividend.cashPerShare,
     ).toBe('0.4887')
   })
   it.each([true, false])(
@@ -99,7 +211,7 @@ describe('application calculations from source records', () => {
         history.annualSummaries.find((y) => y.fiscalYear === 2025)
           ?.implementedTotal,
       ).toBeNull()
-      expect(history.referenceDividend?.fiscalYear).toBe(2024)
+      expect(history.referenceDividend.cashPerShare).toBeNull()
     },
   )
   it('does not let malformed optional announcement data destroy valid sums', async () => {
@@ -109,7 +221,7 @@ describe('application calculations from source records', () => {
       NOTICE_DATE: 'invalid',
     })
     expect(
-      buildHistory(bankCompanies[0], data, now).referenceDividend?.cashPerShare,
+      buildHistory(bankCompanies[0], data, now).referenceDividend.cashPerShare,
     ).toBe('0.3887')
   })
   it('blocks a wrong-share-basis target without erasing the original cash total', async () => {
@@ -120,17 +232,17 @@ describe('application calculations from source records', () => {
       history.annualSummaries.find((y) => y.fiscalYear === 2025)
         ?.implementedTotal,
     ).toBe('0.3887')
-    expect(history.referenceDividend?.fiscalYear).toBe(2024)
+    expect(history.referenceDividend.cashPerShare).toBeNull()
   })
   it('does not silently omit unknown cash or incomplete pages', async () => {
     const data = await input()
     data.records.find((r) => r.reportDate === '2025-12-31')!.cashPerShare = null
     expect(
-      buildHistory(bankCompanies[0], data, now).referenceDividend?.fiscalYear,
-    ).toBe(2024)
+      buildHistory(bankCompanies[0], data, now).referenceDividend.cashPerShare,
+    ).toBeNull()
     data.completeFetch = false
     const history = buildHistory(bankCompanies[0], data, now)
-    expect(history.referenceDividend).toBeNull()
+    expect(history.referenceDividend.cashPerShare).toBeNull()
     expect(
       history.annualSummaries.every((y) => y.implementedTotal === null),
     ).toBe(true)
@@ -140,7 +252,7 @@ describe('application calculations from source records', () => {
     data.records = data.records.filter((r) => r.reportDate === '2025-12-31')
     data.records[0].cashPerShare = '0'
     expect(
-      buildHistory(bankCompanies[0], data, now).referenceDividend?.cashPerShare,
+      buildHistory(bankCompanies[0], data, now).referenceDividend.cashPerShare,
     ).toBe('0')
     data.records[0].progress = '董事会决议通过'
     expect(

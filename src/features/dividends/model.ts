@@ -6,8 +6,7 @@ import type {
 } from '../../../shared/api'
 import { EASTMONEY_IMPLEMENTED_PROGRESS } from '../../../shared/api'
 import { units } from '../../../shared/money'
-import { chinaYear } from '../../../shared/time'
-export type HistoryRange = '5' | '10' | 'all'
+import { historyYears, type HistoryRange } from '../../lib/historyYears'
 export type ChartLayer = 'year' | 'record' | 'profit' | 'cash'
 export interface YearGroup {
   year: number
@@ -26,6 +25,7 @@ export function issueText(issue: Issue): string {
     FISCAL_YEAR_NOT_ENDED: '该财年尚未结束',
     SHARE_BASIS_CHANGED: '存在送转股，历史每股金额不直接用于当前价格计算',
     INVALID_SHARE_RATIO: '送转比例数据异常',
+    MISSING_REFERENCE_YEAR: '该财年暂无分红记录',
   }
   return messages[issue.code] ?? '部分来源字段缺失或异常'
 }
@@ -37,12 +37,8 @@ export function sortRecords(records: EastmoneyDividend[]) {
       a.recordId.localeCompare(b.recordId),
   )
 }
-export function historyView(
-  history: DividendHistory,
-  range: HistoryRange,
-  now = new Date(),
-) {
-  const currentYear = chinaYear(now)
+export function historyView(history: DividendHistory, range: HistoryRange) {
+  const currentYear = history.referenceDividend.fiscalYear + 1
   const years = [
     ...new Set(
       history.records.flatMap((record) =>
@@ -50,14 +46,6 @@ export function historyView(
       ),
     ),
   ].sort((a, b) => a - b)
-  const ended = years.filter((year) => year < currentYear)
-  const last = ended.at(-1)
-  const first =
-    last === undefined
-      ? undefined
-      : range === 'all'
-        ? ended[0]
-        : Math.max(ended[0], last - Number(range) + 1)
   const group = (year: number): YearGroup => ({
     year,
     summary: history.annualSummaries.find((item) => item.fiscalYear === year),
@@ -65,12 +53,11 @@ export function historyView(
       history.records.filter((item) => item.fiscalYear === year),
     ),
   })
-  const chart =
-    first === undefined || last === undefined
-      ? []
-      : Array.from({ length: last - first + 1 }, (_, index) =>
-          group(first + index),
-        )
+  const chart = historyYears(
+    range,
+    years,
+    history.referenceDividend.fiscalYear,
+  ).map(group)
   return {
     currentYear,
     chart,
@@ -98,10 +85,10 @@ export function yearChange(
 ): string | null {
   const previous = all.find((item) => item.fiscalYear === current.year - 1)
   if (
-    !current.summary?.referenceEligible ||
-    !previous?.referenceEligible ||
-    current.summary.implementedTotal === null ||
-    previous.implementedTotal === null
+    current.summary?.implementedTotal == null ||
+    previous?.implementedTotal == null ||
+    current.summary.calculationIssues.length > 0 ||
+    previous.calculationIssues.length > 0
   )
     return null
   const base = units(previous.implementedTotal)

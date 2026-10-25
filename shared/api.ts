@@ -64,8 +64,6 @@ export interface AnnualDividend {
   fiscalYear: number
   implementedTotal: string | null
   implementedRecordCount: number
-  /** An application selection rule, not a source assertion of completeness. */
-  referenceEligible: boolean
   calculationIssues: Issue[]
 }
 export interface DividendHistory {
@@ -76,10 +74,12 @@ export interface DividendHistory {
   records: EastmoneyDividend[]
   annualSummaries: AnnualDividend[]
   referenceDividend: {
+    /** Always the previous Shanghai calendar year, even when its amount is unavailable. */
     fiscalYear: number
-    cashPerShare: string
+    cashPerShare: string | null
     basis: 'eastmoney_implemented_sum'
-  } | null
+    issues: Issue[]
+  }
   coverage: {
     fetchedRecords: number
     returnedRecords: number
@@ -99,6 +99,8 @@ export interface AllocationHistory {
   company: Company
   source: 'eastmoney'
   sourceUrl: string
+  /** Previous Shanghai calendar year at response time, independent of cached source data. */
+  lastEndedYear: number
   years: AnnualAllocation[]
   coverage: {
     fetchedRecords: number

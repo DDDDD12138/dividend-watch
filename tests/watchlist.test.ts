@@ -56,14 +56,28 @@ describe('watchlist settings and derived data', () => {
       )?.targetPrice,
     ).toBe('7.27')
   })
+  it('does not derive any valuation from older annual sums when the previous year is unavailable', () => {
+    const history = {
+      referenceDividend: { fiscalYear: 2025, cashPerShare: null },
+      annualSummaries: [{ fiscalYear: 2024, implementedTotal: '0.5' }],
+    } as DividendHistory
+    const quote = {
+      price: '10',
+      quoteTime: '2026-10-25T10:00:00+08:00',
+    } as Quote
+    expect(metricsFor(history, quote, '5.5')).toBeNull()
+    expect(metricsFor(undefined, quote, '5.5')).toBeNull()
+    expect(metricsFor(history, undefined, '5.5')).toBeNull()
+  })
   it('keeps missing calendar years distinct from explicit zero', () => {
     const history = {
+      referenceDividend: { fiscalYear: 2025, cashPerShare: null },
       annualSummaries: [
         { fiscalYear: 2025, implementedTotal: '0' },
         { fiscalYear: 2023, implementedTotal: '0.4' },
       ],
     } as DividendHistory
-    expect(recentYears(history, new Date('2026-10-21T00:00:00Z'))).toEqual([
+    expect(recentYears(history)).toEqual([
       { year: 2021, amount: null },
       { year: 2022, amount: null },
       { year: 2023, amount: '0.4' },
@@ -71,30 +85,20 @@ describe('watchlist settings and derived data', () => {
       { year: 2025, amount: '0' },
     ])
   })
-  it('ends the trend at the reference year instead of the latest partial year', () => {
-    const history = {
-      referenceDividend: { fiscalYear: 2025, cashPerShare: '0.4' },
-      annualSummaries: [
-        { fiscalYear: 2026, implementedTotal: '0.1' },
-        { fiscalYear: 2025, implementedTotal: '0.4' },
-      ],
-    } as DividendHistory
-    const now = new Date('2026-10-21T00:00:00Z')
-    expect(recentYears(history, now).map((item) => item.year)).toEqual([
-      2021, 2022, 2023, 2024, 2025,
-    ])
-    expect(
-      recentYears({ ...history, referenceDividend: null }, now).at(-1)?.year,
-    ).toBe(2025)
-    expect(
-      recentYears(
-        {
-          ...history,
-          referenceDividend: null,
-          annualSummaries: [history.annualSummaries[0]],
-        },
-        now,
-      ),
-    ).toEqual([])
+  it('keeps the previous five calendar years even when recent dividends are missing', () => {
+    for (const annualSummaries of [
+      [],
+      [{ fiscalYear: 2026, implementedTotal: '0.1' }],
+      [{ fiscalYear: 2022, implementedTotal: '0.4' }],
+    ]) {
+      const years = recentYears({
+        annualSummaries,
+        referenceDividend: { fiscalYear: 2025, cashPerShare: null },
+      } as DividendHistory)
+      expect(years.map((item) => item.year)).toEqual([
+        2021, 2022, 2023, 2024, 2025,
+      ])
+      expect(years.at(-1)?.amount).toBeNull()
+    }
   })
 })

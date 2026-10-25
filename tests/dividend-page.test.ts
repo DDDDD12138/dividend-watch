@@ -22,6 +22,7 @@ const annual: Resource<AllocationHistory> = {
       company: { code: '601939', name: '建设银行', market: 'SH' },
       source: 'eastmoney',
       sourceUrl: 'https://example.test/annual',
+      lastEndedYear: 2025,
       years: [
         {
           fiscalYear: 2025,
@@ -75,6 +76,19 @@ beforeEach(() => {
   vi.mocked(useResource).mockReset().mockReturnValue({ loading: false })
 })
 describe('independent dividend detail views', () => {
+  it('explicitly identifies retained annual statistics after refresh fails', () => {
+    const html = renderToStaticMarkup(
+      createElement(AllocationPanel, {
+        resource: { ...annual, error: '网络连接失败' },
+        range: '5',
+        emphasis: null,
+        onEmphasis: vi.fn(),
+        onYear: vi.fn(),
+      }),
+    )
+    expect(html).toContain('年度统计更新失败</p>')
+    expect(html).not.toContain('当前显示')
+  })
   it.each([{ loading: true }, { loading: false, error: '分红来源暂不可用' }])(
     'keeps the allocation switch reachable when dividend history is unavailable: %j',
     (resource) => {
@@ -138,7 +152,6 @@ describe('independent dividend detail views', () => {
           fiscalYear: 2025,
           implementedTotal: '0.6',
           implementedRecordCount: 2,
-          referenceEligible: true,
           calculationIssues: [],
         },
       }),

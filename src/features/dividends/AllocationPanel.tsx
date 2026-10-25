@@ -4,7 +4,7 @@ import type { Resource } from '../../data/api'
 import { AllocationChart, type AllocationLayer } from './AllocationChart'
 import { AllocationDialog, type AllocationSelection } from './AllocationDialog'
 import { allocationView } from './allocationModel'
-import type { HistoryRange } from './model'
+import type { HistoryRange } from '../../lib/historyYears'
 
 export function AllocationPanel({
   resource,
@@ -27,10 +27,8 @@ export function AllocationPanel({
     [data, range],
   )
   const [selected, setSelected] = useState<AllocationSelection | null>(null)
-  const refreshError = resource.error && points.length > 0
-  const notice = refreshError
-    ? '年度统计更新失败，保留上次结果'
-    : data && !data.coverage.completeFetch
+  const notice =
+    data && !data.coverage.completeFetch
       ? '年度统计不完整，缺失年份保持未知'
       : null
   return (
@@ -86,12 +84,13 @@ export function AllocationPanel({
           })
         }
       />
+      {resource.error && resource.response && (
+        <p className="allocation-notice history-warning" role="alert">
+          年度统计更新失败
+        </p>
+      )}
       {notice && (
-        <p
-          className="allocation-notice history-warning"
-          role={refreshError ? 'alert' : 'status'}
-          title={refreshError ? resource.error : undefined}
-        >
+        <p className="allocation-notice history-warning" role="status">
           {notice}
         </p>
       )}

@@ -48,6 +48,7 @@ function history(records: AnnualAllocation[]): AllocationHistory {
     company: bankCompanies[0],
     source: 'eastmoney',
     sourceUrl: 'https://example.test',
+    lastEndedYear: 2025,
     years: records,
     coverage: {
       fetchedRecords: records.length,
@@ -227,24 +228,42 @@ describe('allocation presentation and calculations', () => {
       allocationGrowth(record(), record({ fiscalYear: 2024, netProfit: '0' })),
     ).toBeNull()
   })
-  it('keeps calendar gaps unknown and excludes unfinished years at the Shanghai year boundary', () => {
+  it('keeps calendar gaps unknown and uses the server calendar year even without records for that year', () => {
     const data = history([
       record({ fiscalYear: 2026 }),
       record(),
       record({ fiscalYear: 2023 }),
       record({ fiscalYear: 2014 }),
     ])
-    expect(allocationView(data, '5', now).map((p) => p.year)).toEqual([
+    expect(allocationView(data, '5').map((p) => p.year)).toEqual([
       2021, 2022, 2023, 2024, 2025,
     ])
-    expect(allocationView(data, '5', now)[3].record).toBeUndefined()
-    expect(allocationView(data, 'all', now)[0].year).toBe(2014)
+    expect(allocationView(data, '5')[3].record).toBeUndefined()
+    expect(allocationView(data, 'all')[0].year).toBe(2014)
     expect(
-      allocationView(data, '5', new Date('2026-12-31T15:59:59Z')).at(-1)!.year,
-    ).toBe(2025)
-    expect(
-      allocationView(data, '5', new Date('2026-12-31T16:00:00Z')).at(-1)!.year,
+      allocationView({ ...data, lastEndedYear: 2026 }, '5').at(-1)!.year,
     ).toBe(2026)
+  })
+  it('keeps trailing years visible without borrowing old annual figures or ratios', () => {
+    const data = history([record({ fiscalYear: 2022 })])
+    for (const range of ['5', '10', 'all'] as const) {
+      const points = allocationView(data, range)
+      expect(points.at(-1)?.year).toBe(2025)
+      expect(
+        points
+          .slice(-3)
+          .every(
+            (point) =>
+              point.record === undefined &&
+              point.ratio === null &&
+              point.growth === null,
+          ),
+      ).toBe(true)
+    }
+    expect(allocationView(history([]), '5').map((point) => point.year)).toEqual(
+      [2021, 2022, 2023, 2024, 2025],
+    )
+    expect(allocationView(history([]), 'all')).toEqual([])
   })
   it('formats signed and very small monetary values without rounding nonzero amounts to zero', () => {
     expect(allocationAmount('11200000000')).toBe('112.0')
@@ -267,7 +286,6 @@ describe('allocation presentation and calculations', () => {
         record({ cashDividend: '20000000000' }),
       ]),
       '5',
-      now,
     )
     const axis = allocationAxis(points)
     expect(axis.minimum).toBeLessThanOrEqual(-100)
@@ -282,7 +300,7 @@ describe('allocation presentation and calculations', () => {
   })
 })
 describe('allocation API', () => {
-  function setup() {
+  function setup(clock = () => now) {
     const entries = new Map<string, Response>()
     const cache: ResponseCache = {
       match: async (key) => entries.get(key.url)?.clone(),
@@ -298,7 +316,7 @@ describe('allocation API', () => {
       return response([row()])
     })
     return {
-      app: createApp({ fetcher, cache, now: () => now }),
+      app: createApp({ fetcher, cache, now: clock }),
       fetcher,
       break: () => {
         broken = true
@@ -312,12 +330,29 @@ describe('allocation API', () => {
     expect(first.headers.get('Cache-Control')).toBe('no-store')
     const body = (await first.json()) as ApiResponse<AllocationHistory>
     expect(body.data.company).toEqual(bankCompanies[0])
+    expect(body.data.lastEndedYear).toBe(2025)
     expect(body.data.years[0].cashDividend).toBe('101684000000')
     expect(body.meta.cache).toBe('miss')
     const second = (await (
       await app.request('/api/companies/601939/allocations')
     ).json()) as ApiResponse<AllocationHistory>
     expect(second.meta.cache).toBe('hit')
+    expect(fetcher).toHaveBeenCalledTimes(2)
+  })
+  it('advances the server calendar year at midnight even when the source response remains cached', async () => {
+    let time = new Date('2026-12-31T15:59:00Z')
+    const { app, fetcher } = setup(() => time)
+    const before = (await (
+      await app.request('/api/companies/601939/allocations')
+    ).json()) as ApiResponse<AllocationHistory>
+    time = new Date('2026-12-31T16:01:00Z')
+    const after = (await (
+      await app.request('/api/companies/601939/allocations')
+    ).json()) as ApiResponse<AllocationHistory>
+    expect(before.data.lastEndedYear).toBe(2025)
+    expect(after.data.lastEndedYear).toBe(2026)
+    expect(after.meta.cache).toBe('hit')
+    expect(after.meta.fetchedAt).toBe(before.meta.fetchedAt)
     expect(fetcher).toHaveBeenCalledTimes(2)
   })
   it('keeps malformed identities, unknown companies and upstream failures distinct', async () => {

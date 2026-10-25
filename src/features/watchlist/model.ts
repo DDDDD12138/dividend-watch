@@ -1,6 +1,6 @@
 import type { DividendHistory, Quote } from '../../../shared/api'
 import { calculateMetrics, units } from '../../../shared/money'
-import { chinaYear } from '../../../shared/time'
+import { historyYears } from '../../lib/historyYears'
 
 export interface Preferences {
   version: 1
@@ -54,7 +54,7 @@ export function metricsFor(
   expectedYield: string,
 ) {
   return calculateMetrics(
-    history?.referenceDividend?.cashPerShare ?? null,
+    history?.referenceDividend.cashPerShare ?? null,
     quote?.quoteTime ? quote.price : null,
     expectedYield,
   )
@@ -66,24 +66,15 @@ export function compareYields(a: string | undefined, b: string | undefined) {
     right = units(b)
   return left === right ? 0 : left > right ? -1 : 1
 }
-export function recentYears(history: DividendHistory, now = new Date()) {
-  const currentYear = chinaYear(now)
-  // 与参考年度对齐；无参考值时仍可查看已结束年份的历史，不混入当年部分分红。
-  const latest =
-    history.referenceDividend?.fiscalYear ??
-    history.annualSummaries.reduce(
-      (max, item) =>
-        item.fiscalYear < currentYear ? Math.max(max, item.fiscalYear) : max,
-      0,
-    )
-  if (!latest) return []
-  return Array.from({ length: 5 }, (_, i) => {
-    const year = latest - 4 + i
-    return {
-      year,
-      amount:
-        history.annualSummaries.find((item) => item.fiscalYear === year)
-          ?.implementedTotal ?? null,
-    }
-  })
+export function recentYears(history: DividendHistory) {
+  return historyYears('5', [], history.referenceDividend.fiscalYear).map(
+    (year) => {
+      return {
+        year,
+        amount:
+          history.annualSummaries.find((item) => item.fiscalYear === year)
+            ?.implementedTotal ?? null,
+      }
+    },
+  )
 }

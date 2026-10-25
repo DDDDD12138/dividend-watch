@@ -1,5 +1,5 @@
 import { useLayoutEffect, useRef, useState } from 'react'
-import type { HistoryRange } from './model'
+import type { HistoryRange } from '../../lib/historyYears'
 
 function revealButton(button: HTMLButtonElement) {
   const scroller = button.parentElement!

@@ -1,6 +1,6 @@
 import { useCallback, useState } from 'react'
 import { compareYields, validYield } from './model'
-import { StockRow } from './StockRow'
+import { StockRow, type StockRowResult } from './StockRow'
 import { SortMenu } from './SortMenu'
 import { usePreferences, useQuotes } from './useWatchlist'
 import { useWatchlistPosition } from './useWatchlistPosition'
@@ -13,44 +13,60 @@ export function WatchlistPage() {
   useWatchlistPosition()
   const { preferences, update, storageError } = usePreferences()
   const [revision, setRevision] = useState(0)
-  const [dividendRequests, setDividendRequests] = useState<
-    Record<string, { revision: number; loading: boolean }>
-  >({})
-  const onLoading = useCallback(
-    (code: string, revision: number, loading: boolean) => {
-      setDividendRequests((previous) => {
-        if (
-          previous[code]?.revision === revision &&
-          previous[code]?.loading === loading
+  const [rows, setRows] = useState<{
+    results: Record<string, StockRowResult>
+    sortYields: Record<string, string | undefined>
+  }>({ results: {}, sortYields: {} })
+  const onResult = useCallback(
+    (code: string, result: StockRowResult) => {
+      setRows((previous) => {
+        const existing = previous.results[code]
+        const unchanged =
+          existing?.revision === result.revision &&
+          existing.loading === result.loading &&
+          existing.yield === result.yield
+        const results = unchanged
+          ? previous.results
+          : { ...previous.results, [code]: result }
+        const complete = preferences.codes.every(
+          (code) =>
+            results[code]?.revision === revision && !results[code].loading,
         )
-          return previous
-        return { ...previous, [code]: { revision, loading } }
+        const sortChanged =
+          complete &&
+          preferences.codes.some(
+            (code) => results[code].yield !== previous.sortYields[code],
+          )
+        if (unchanged && !sortChanged) return previous
+        return {
+          results,
+          // Publish sorting values together, after every row in this refresh has settled.
+          sortYields: sortChanged
+            ? Object.fromEntries(
+                preferences.codes.map((code) => [code, results[code].yield]),
+              )
+            : previous.sortYields,
+        }
       })
     },
-    [],
+    [preferences.codes, revision],
   )
   const quotes = useQuotes(preferences.codes, revision)
   const [yieldInput, setYieldInput] = useState(preferences.expectedYield)
-  const [yields, setYields] = useState<Record<string, string | undefined>>({})
   const [addedNames, setAddedNames] = useState<Record<string, string>>({})
   const [adding, setAdding] = useState(false)
   const [notice, setNotice] = useState('')
-  const onYield = useCallback((code: string, value: string | undefined) => {
-    setYields((previous) =>
-      previous[code] === value ? previous : { ...previous, [code]: value },
-    )
-  }, [])
   const refreshing =
     quotes.loading ||
     preferences.codes.some(
       (code) =>
-        dividendRequests[code]?.revision !== revision ||
-        dividendRequests[code]?.loading,
+        rows.results[code]?.revision !== revision ||
+        rows.results[code]?.loading,
     )
   const invalidYield = !validYield(yieldInput)
   const codes = [...preferences.codes]
   if (preferences.sort === 'yield')
-    codes.sort((a, b) => compareYields(yields[a], yields[b]))
+    codes.sort((a, b) => compareYields(rows.sortYields[a], rows.sortYields[b]))
   const names = {
     ...addedNames,
     ...Object.fromEntries(
@@ -74,10 +90,12 @@ export function WatchlistPage() {
       ...preferences,
       codes: preferences.codes.filter((item) => item !== code),
     })
-    setYields((previous) => {
-      const next = { ...previous }
-      delete next[code]
-      return next
+    setRows((previous) => {
+      const results = { ...previous.results },
+        sortYields = { ...previous.sortYields }
+      delete results[code]
+      delete sortYields[code]
+      return { results, sortYields }
     })
     setNotice(`已移除 ${names[code] ?? code}`)
   }
@@ -166,8 +184,7 @@ export function WatchlistPage() {
         </div>
         {quotes.error && codes.length > 0 && (
           <p className="table-message error-text" role="status">
-            行情{quotes.response ? '刷新失败，当前保留上次数据' : '加载失败'}
-            。请重试。
+            {quotes.response ? '行情更新失败' : '行情加载失败'}
           </p>
         )}
         {codes.length ? (
@@ -184,8 +201,8 @@ export function WatchlistPage() {
             <thead>
               <tr>
                 <th scope="col">公司</th>
-                <th scope="col">近 5 年分红 · 年度合计</th>
-                <th scope="col">参考年度分红</th>
+                <th scope="col">近 5 年分红 · 已实施合计</th>
+                <th scope="col">上一财年分红</th>
                 <th scope="col">当前价</th>
                 <th scope="col">参考股息率</th>
                 <th scope="col" className="target-cell">
@@ -207,8 +224,7 @@ export function WatchlistPage() {
                   quoteError={quotes.error}
                   expectedYield={preferences.expectedYield}
                   revision={revision}
-                  onYield={onYield}
-                  onLoading={onLoading}
+                  onResult={onResult}
                 />
               ))}
             </tbody>
@@ -228,7 +244,7 @@ export function WatchlistPage() {
           </div>
         )}
         <p className="table-footer">
-          参考股息率与目标价格均按参考年度的税前每股现金分红计算。
+          股息率与目标价格按上一财年税前每股已实施分红计算；数据不可用时不计算，不使用更早年份替代。
         </p>
       </section>
       <footer className="page-footer">

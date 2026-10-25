@@ -1,8 +1,7 @@
 import type { AllocationHistory, AnnualAllocation } from '../../../shared/api'
 import { units } from '../../../shared/money'
-import { chinaYear } from '../../../shared/time'
+import { historyYears, type HistoryRange } from '../../lib/historyYears'
 import { dividendAxis } from './axis'
-import type { HistoryRange } from './model'
 
 export interface AllocationPoint {
   year: number
@@ -60,21 +59,14 @@ export function allocationGrowth(
 export function allocationView(
   history: AllocationHistory,
   range: HistoryRange,
-  now = new Date(),
 ): AllocationPoint[] {
-  const years = history.years
-    .filter((row) => row.fiscalYear < chinaYear(now))
-    .map((row) => row.fiscalYear)
-  if (!years.length) return []
-  const last = Math.max(...years)
-  const first =
-    range === 'all'
-      ? Math.min(...years)
-      : Math.max(Math.min(...years), last - Number(range) + 1)
   const byYear = new Map(history.years.map((row) => [row.fiscalYear, row]))
-  return Array.from({ length: last - first + 1 }, (_, index) => {
-    const year = first + index,
-      record = byYear.get(year)
+  return historyYears(
+    range,
+    history.years.map((row) => row.fiscalYear),
+    history.lastEndedYear,
+  ).map((year) => {
+    const record = byYear.get(year)
     return {
       year,
       record,

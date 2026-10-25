@@ -20,28 +20,39 @@ export async function request<T>(
   }
   return response.json() as Promise<ApiResponse<T>>
 }
-// 每个接口独立保留上次成功响应；切换参数或卸载时取消旧请求。
+// Refreshes retain the last successful response for this path, never for a different resource.
 export function useResource<T>(
   path: string | null,
   revision: number,
   load: typeof request<T> = request<T>,
 ): Resource<T> {
-  const key = `${path}:${revision}`
   const [state, setState] = useState<
-    Omit<Resource<T>, 'loading'> & { key?: string }
-  >({})
+    Resource<T> & { path: string | null; revision: number }
+  >({
+    path,
+    revision,
+    loading: path !== null,
+  })
+  if (state.path !== path || state.revision !== revision)
+    setState({
+      path,
+      revision,
+      response: state.path === path ? state.response : undefined,
+      loading: path !== null,
+    })
   useEffect(() => {
     if (!path) return
     const controller = new AbortController()
     void load(path, controller.signal).then(
       (response) => {
-        if (!controller.signal.aborted) setState({ response, key })
+        if (!controller.signal.aborted)
+          setState({ response, path, revision, loading: false })
       },
       (error: unknown) => {
         if (!controller.signal.aborted)
           setState((previous) => ({
             ...previous,
-            key,
+            loading: false,
             error:
               error instanceof Error && error.name === 'TimeoutError'
                 ? '请求超时，请重试'
@@ -54,12 +65,11 @@ export function useResource<T>(
       },
     )
     return () => controller.abort()
-  }, [path, key, load])
-  const loading = path !== null && state.key !== key
+  }, [path, revision, load])
   return {
     response: state.response,
-    loading,
-    error: loading ? undefined : state.error,
+    loading: state.loading,
+    error: state.error,
   }
 }
 const dividendQueue = createRequestQueue(4)
