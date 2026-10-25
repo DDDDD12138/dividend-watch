@@ -1,9 +1,10 @@
-import { useCallback, useState } from 'react'
-import { compareYields, validYield } from './model'
-import { StockRow, type StockRowResult } from './StockRow'
+import { useState } from 'react'
+import { validYield } from './model'
+import { StockRow } from './StockRow'
 import { SortMenu } from './SortMenu'
 import { usePreferences, useQuotes } from './useWatchlist'
 import { useWatchlistPosition } from './useWatchlistPosition'
+import { useWatchlistOrder } from './useWatchlistOrder'
 import { AddCompanyDialog } from './AddCompanyDialog'
 import type { Company } from '../../../shared/api'
 import { timeLabel } from '../../lib/format'
@@ -13,60 +14,15 @@ export function WatchlistPage() {
   useWatchlistPosition()
   const { preferences, update, storageError } = usePreferences()
   const [revision, setRevision] = useState(0)
-  const [rows, setRows] = useState<{
-    results: Record<string, StockRowResult>
-    sortYields: Record<string, string | undefined>
-  }>({ results: {}, sortYields: {} })
-  const onResult = useCallback(
-    (code: string, result: StockRowResult) => {
-      setRows((previous) => {
-        const existing = previous.results[code]
-        const unchanged =
-          existing?.revision === result.revision &&
-          existing.loading === result.loading &&
-          existing.yield === result.yield
-        const results = unchanged
-          ? previous.results
-          : { ...previous.results, [code]: result }
-        const complete = preferences.codes.every(
-          (code) =>
-            results[code]?.revision === revision && !results[code].loading,
-        )
-        const sortChanged =
-          complete &&
-          preferences.codes.some(
-            (code) => results[code].yield !== previous.sortYields[code],
-          )
-        if (unchanged && !sortChanged) return previous
-        return {
-          results,
-          // Publish sorting values together, after every row in this refresh has settled.
-          sortYields: sortChanged
-            ? Object.fromEntries(
-                preferences.codes.map((code) => [code, results[code].yield]),
-              )
-            : previous.sortYields,
-        }
-      })
-    },
-    [preferences.codes, revision],
-  )
+  const ranking = useWatchlistOrder(preferences.codes, revision)
   const quotes = useQuotes(preferences.codes, revision)
   const [yieldInput, setYieldInput] = useState(preferences.expectedYield)
   const [addedNames, setAddedNames] = useState<Record<string, string>>({})
   const [adding, setAdding] = useState(false)
   const [notice, setNotice] = useState('')
-  const refreshing =
-    quotes.loading ||
-    preferences.codes.some(
-      (code) =>
-        rows.results[code]?.revision !== revision ||
-        rows.results[code]?.loading,
-    )
+  const refreshing = quotes.loading || ranking.loading
   const invalidYield = !validYield(yieldInput)
-  const codes = [...preferences.codes]
-  if (preferences.sort === 'yield')
-    codes.sort((a, b) => compareYields(rows.sortYields[a], rows.sortYields[b]))
+  const codes = preferences.sort === 'yield' ? ranking.order : preferences.codes
   const names = {
     ...addedNames,
     ...Object.fromEntries(
@@ -82,21 +38,15 @@ export function WatchlistPage() {
     )
       return
     setAddedNames((previous) => ({ ...previous, [company.code]: company.name }))
-    update({ ...preferences, codes: [...preferences.codes, company.code] })
+    const codes = [...preferences.codes, company.code]
+    ranking.changeCompanies(codes)
+    update({ ...preferences, codes })
     setNotice(`已添加 ${company.name}`)
   }
   function remove(code: string) {
-    update({
-      ...preferences,
-      codes: preferences.codes.filter((item) => item !== code),
-    })
-    setRows((previous) => {
-      const results = { ...previous.results },
-        sortYields = { ...previous.sortYields }
-      delete results[code]
-      delete sortYields[code]
-      return { results, sortYields }
-    })
+    const codes = preferences.codes.filter((item) => item !== code)
+    ranking.changeCompanies(codes)
+    update({ ...preferences, codes })
     setNotice(`已移除 ${names[code] ?? code}`)
   }
   return (
@@ -119,6 +69,11 @@ export function WatchlistPage() {
       {storageError && (
         <p className="error-text" role="alert">
           {storageError}
+        </p>
+      )}
+      {ranking.error && (
+        <p className="error-text" role="status">
+          {ranking.error}
         </p>
       )}
       <section className="watchlist-surface" aria-label="自选公司">
@@ -224,7 +179,7 @@ export function WatchlistPage() {
                   quoteError={quotes.error}
                   expectedYield={preferences.expectedYield}
                   revision={revision}
-                  onResult={onResult}
+                  onResult={ranking.onResult}
                 />
               ))}
             </tbody>

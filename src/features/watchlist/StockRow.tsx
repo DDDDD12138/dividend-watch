@@ -5,12 +5,8 @@ import { percent, timeLabel } from '../../lib/format'
 import { Link } from 'react-router'
 import { useDividends } from '../../data/api'
 import { issueText } from '../dividends/model'
+import type { StockRowResult } from './order'
 
-export interface StockRowResult {
-  revision: number
-  loading: boolean
-  yield: string | undefined
-}
 interface Props {
   code: string
   name?: string
