@@ -201,6 +201,7 @@
 }
 .company-cell strong {
   font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-company-name);
 }
 .company-cell .secondary,
 .dividend-cell .secondary {
@@ -211,6 +212,7 @@
   align-items: center;
   gap: var(--space-2);
   white-space: nowrap;
+  font-weight: var(--font-weight-semibold);
 }
 .row-refresh {
   flex: 0 0 12px;
@@ -240,7 +242,7 @@
   border-left: 1px solid var(--color-border);
 }
 .target-cell .money-value {
-  color: var(--color-primary);
+  color: var(--color-target-text);
 }
 .gap-cell {
   white-space: nowrap;
@@ -412,37 +414,6 @@ body:has(.add-dialog[open]) {
   white-space: nowrap;
   border: 0;
 }
-@media (min-width: 761px) and (max-width: 1100px) {
-  .watchlist-page {
-    padding-inline: var(--space-4);
-  }
-  .stock-table th,
-  .stock-table td {
-    padding-inline: var(--space-2);
-  }
-  .col-trend {
-    width: 23%;
-  }
-  .col-dividend {
-    width: 15%;
-  }
-  .col-gap {
-    width: 14%;
-  }
-  .money-value {
-    font-size: var(--font-size-base);
-  }
-  .yield-value {
-    font-size: var(--font-size-xl);
-  }
-  .company-cell strong,
-  .gap-cell strong {
-    font-size: var(--font-size-base);
-  }
-  .watchlist-toolbar {
-    padding-inline: var(--space-4);
-  }
-}
 @media (max-width: 760px) {
   .watchlist-page {
     padding: var(--space-6) var(--space-4);
@@ -458,9 +429,6 @@ body:has(.add-dialog[open]) {
   .page-heading .eyebrow {
     display: none;
   }
-  .page-heading .secondary {
-    max-width: 190px;
-  }
   .button-primary {
     padding: var(--space-2) var(--space-3);
     font-size: var(--font-size-sm);
@@ -472,34 +440,63 @@ body:has(.add-dialog[open]) {
     overflow: visible;
   }
   .watchlist-toolbar {
-    flex-direction: column;
-    align-items: stretch;
-    gap: var(--space-3);
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto auto;
+    gap: var(--space-2);
     padding: 0;
     border: 0;
   }
   .list-heading {
-    order: 2;
+    grid-column: 1;
+    grid-row: 2;
     font-size: var(--font-size-sm);
-    margin-block: var(--space-1);
+    white-space: normal;
+  }
+  .list-heading span {
+    display: inline-block;
+    margin-left: var(--space-1);
+    white-space: nowrap;
   }
   .toolbar-actions {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) auto;
-    gap: var(--space-2);
+    display: contents;
   }
   .yield-control {
     grid-column: 1 / -1;
+    grid-row: 1;
     flex-wrap: wrap;
     justify-content: space-between;
+    gap: var(--space-2);
     padding: var(--space-3) var(--space-4);
-    background: var(--color-surface-hover);
-    border: 1px solid var(--color-border);
+    background: var(--color-expectation-bg);
+    border: 1px solid var(--color-expectation-border);
     border-radius: var(--radius-lg);
     font-size: var(--font-size-sm);
   }
   .yield-input {
     background: var(--color-surface);
+    border-color: var(--color-expectation-input-border);
+  }
+  .yield-control label {
+    font-weight: var(--font-weight-semibold);
+  }
+  .yield-input input {
+    width: 80px;
+    font-size: var(--font-size-xl);
+  }
+  .watchlist-toolbar .refresh-button {
+    grid-column: 3;
+    grid-row: 2;
+    width: 64px;
+    gap: var(--space-1);
+    padding-inline: var(--space-1);
+    font-size: var(--font-size-xs);
+  }
+  .watchlist-toolbar .sort-control {
+    grid-column: 2;
+    grid-row: 2;
+    width: 142px;
+    padding-block: var(--space-1);
+    font-size: var(--font-size-xs);
   }
   .yield-control > .error-text {
     position: static;
@@ -511,8 +508,30 @@ body:has(.add-dialog[open]) {
     border: 0;
     box-shadow: none;
   }
-  .sort-trigger {
+  .watchlist-toolbar .sort-trigger {
+    position: relative;
+    min-height: 36px;
     background: transparent;
+    gap: var(--space-1);
+    padding: var(--space-1) var(--space-2);
+  }
+  /* Keep a 44px touch target around the compact button. */
+  .watchlist-toolbar .sort-trigger::after {
+    content: '';
+    position: absolute;
+    inset-inline: 0;
+    top: 50%;
+    height: 44px;
+    transform: translateY(-50%);
+  }
+  .watchlist-toolbar .sort-menu {
+    top: calc(100% + var(--space-1));
+    width: 100%;
+  }
+  .watchlist-toolbar .sort-menu button {
+    min-height: 44px;
+    gap: var(--space-2);
+    padding-inline: var(--space-2);
   }
   .stock-table {
     display: block;
@@ -534,10 +553,10 @@ body:has(.add-dialog[open]) {
   }
   .stock-table tbody tr {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-    column-gap: var(--space-4);
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+    column-gap: var(--space-1);
     height: auto;
-    padding: var(--space-4) var(--space-4) 0;
+    padding: var(--space-4);
     border: 1px solid var(--color-border);
     border-radius: var(--radius-lg);
     background: var(--color-surface);
@@ -551,7 +570,7 @@ body:has(.add-dialog[open]) {
     border: 0;
   }
   .stock-table .company-cell {
-    grid-column: 1;
+    grid-column: 1 / span 3;
     grid-row: 1;
     align-self: center;
     padding-bottom: var(--space-4);
@@ -560,7 +579,7 @@ body:has(.add-dialog[open]) {
     font-size: var(--font-size-base);
   }
   .stock-table .trend-cell {
-    grid-column: 2;
+    grid-column: 4 / span 3;
     grid-row: 1;
     justify-self: end;
     padding-bottom: var(--space-4);
@@ -571,28 +590,26 @@ body:has(.add-dialog[open]) {
   }
   .stock-table .price-cell,
   .stock-table .target-cell,
-  .stock-table .yield-cell,
-  .stock-table .gap-cell {
-    padding-block: var(--space-3);
-    border-top: 1px solid var(--color-border);
+  .stock-table .yield-cell {
+    grid-row: 2;
   }
   .price-cell {
-    grid-column: 1;
-    grid-row: 2;
+    grid-column: 3 / span 2;
   }
   .stock-table .target-cell {
-    grid-column: 2;
-    grid-row: 2;
+    grid-column: 5 / span 2;
     background: transparent;
     border-left: 0;
   }
   .yield-cell {
-    grid-column: 1;
-    grid-row: 3;
+    grid-column: 1 / span 2;
   }
   .gap-cell {
-    grid-column: 2;
+    grid-column: 5 / span 2;
     grid-row: 3;
+    min-height: 24px;
+    font-size: var(--font-size-xs);
+    white-space: normal;
   }
   .stock-table td[data-label]::before {
     content: attr(data-label);
@@ -608,29 +625,38 @@ body:has(.add-dialog[open]) {
     align-items: baseline;
     flex-wrap: wrap;
     gap: var(--space-1) var(--space-2);
-    margin-inline: calc(-1 * var(--space-4));
-    padding: var(--space-3) var(--space-4);
-    border-top: 1px solid var(--color-border);
-    background: var(--color-surface-subtle);
+    margin-top: var(--space-3);
   }
   .stock-table .dividend-cell::before {
-    margin-right: auto;
     margin-bottom: 0;
   }
+  .stock-table td.gap-cell::before {
+    display: none;
+  }
   .dividend-cell .money-value {
-    font-size: var(--font-size-sm);
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-medium);
+    color: var(--color-text-muted);
   }
   .dividend-cell .secondary {
     margin: 0;
   }
+  .dividend-cell .row-status {
+    flex-basis: 100%;
+    margin: 0;
+  }
   .money-value {
-    font-size: var(--font-size-xl);
+    font-size: clamp(var(--font-size-sm), 4.5vw, var(--font-size-lg));
   }
   .yield-value {
-    font-size: var(--font-size-2xl);
+    font-size: var(--font-size-xl);
   }
   .gap-cell strong {
-    font-size: var(--font-size-base);
+    font-size: inherit;
+  }
+  .gap-cell .status-badge {
+    display: inline-block;
+    padding-block: 0;
   }
   .table-footer {
     padding: var(--space-4) 0 0;
@@ -663,6 +689,7 @@ body:has(.add-dialog[open]) {
   width: 192px;
   flex: 0 0 192px;
   max-width: 100%;
+  font-size: var(--font-size-sm);
 }
 .sort-trigger {
   display: grid;
@@ -672,6 +699,7 @@ body:has(.add-dialog[open]) {
   gap: var(--space-2);
   width: 100%;
   white-space: nowrap;
+  font-size: inherit;
 }
 .sort-trigger svg,
 .refresh-button svg {
@@ -716,7 +744,7 @@ body:has(.add-dialog[open]) {
   color: var(--color-text);
   white-space: nowrap;
   text-align: left;
-  font-size: var(--font-size-sm);
+  font-size: inherit;
   cursor: pointer;
 }
 .sort-menu button[aria-checked='true'] {
@@ -726,6 +754,8 @@ body:has(.add-dialog[open]) {
 .sort-menu button:hover,
 .sort-menu button:focus-visible {
   background: var(--color-surface-hover);
+}
+.sort-menu button:focus-visible {
   outline: 2px solid var(--color-focus);
   outline-offset: -2px;
 }

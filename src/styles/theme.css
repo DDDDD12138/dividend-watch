@@ -6,6 +6,10 @@
   --color-surface: #ffffff;
   --color-surface-subtle: #fbfcf9;
   --color-target-bg: #f7f9f3;
+  --color-target-text: #47664e;
+  --color-expectation-bg: #edf3e8;
+  --color-expectation-border: #dce6d5;
+  --color-expectation-input-border: #d2dfcc;
   --color-surface-hover: #f0f6ef;
   --color-text: #243b39;
   --color-text-muted: #64736c;
@@ -42,6 +46,7 @@
   --font-weight-normal: 400;
   --font-weight-medium: 500;
   --font-weight-semibold: 600;
+  --font-weight-company-name: 650;
   --font-weight-chart-amount: 650;
   --font-weight-bold: 700;
   --line-height-tight: 1.25;

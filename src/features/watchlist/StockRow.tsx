@@ -153,11 +153,7 @@ export function StockRow({
           {reference?.cashPerShare != null ? `¥${reference.cashPerShare}` : '—'}
         </strong>
         <span className="secondary">
-          {reference
-            ? `${reference.fiscalYear} · 每股 · 税前`
-            : history.loading
-              ? '加载中…'
-              : null}
+          {reference ? '每股 · 税前' : history.loading ? '加载中…' : null}
         </span>
         {dividendStatus && (
           <span className="row-status" role="status">
