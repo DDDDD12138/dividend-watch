@@ -74,14 +74,26 @@ export function StockRow({
     .filter(Boolean)
     .join('；')
   return (
-    <tr>
+    <tr aria-busy={loading}>
       <th scope="row" className="company-cell">
         <strong>
           <Link className="company-name-link" to={`/dividends/${code}`}>
             {quote?.name ?? name ?? data?.company.name ?? code}
           </Link>
         </strong>
-        <span className="secondary">{code}</span>
+        <span className="secondary company-meta">
+          {code}
+          <span className="row-refresh">
+            {loading && (
+              <span
+                className="is-spinning"
+                role="img"
+                aria-label="更新中"
+                title="更新中"
+              />
+            )}
+          </span>
+        </span>
       </th>
       <td className="trend-cell">
         <Link

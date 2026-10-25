@@ -208,6 +208,24 @@
 .dividend-cell .secondary {
   margin-top: var(--space-1);
 }
+.company-meta {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  white-space: nowrap;
+}
+.row-refresh {
+  flex: 0 0 12px;
+  height: 12px;
+}
+.row-refresh .is-spinning {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border: 1.5px solid var(--color-border);
+  border-top-color: currentColor;
+  border-radius: var(--radius-full);
+}
 .money-value {
   font-size: var(--font-size-xl);
   font-weight: var(--font-weight-semibold);

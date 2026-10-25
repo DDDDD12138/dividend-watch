@@ -10,7 +10,7 @@ import { bankCompanies, fixtureFetcher, now } from './helpers'
 
 vi.mock('../src/data/api', () => ({ useDividends: vi.fn() }))
 
-function renderRow() {
+function renderRow(quoteLoading = false) {
   return renderToStaticMarkup(
     createElement(
       MemoryRouter,
@@ -23,7 +23,7 @@ function renderRow() {
           {},
           createElement(StockRow, {
             code: '601939',
-            quoteLoading: false,
+            quoteLoading,
             expectedYield: '5.5',
             revision: 1,
             onResult: vi.fn(),
@@ -44,6 +44,43 @@ function renderRow() {
     ),
   )
 }
+
+it.each([
+  [true, false],
+  [false, true],
+  [true, true],
+  [false, false],
+])(
+  'keeps values visible and marks the row busy until both requests finish (dividends: %s, quotes: %s)',
+  async (historyLoading, quoteLoading) => {
+    const data = buildHistory(
+      bankCompanies[0],
+      await fetchDividends(fixtureFetcher, bankCompanies[0], now),
+      now,
+    )
+    vi.mocked(useDividends).mockReturnValue({
+      loading: historyLoading,
+      response: {
+        data,
+        meta: {
+          source: 'eastmoney',
+          fetchedAt: now.toISOString(),
+          cache: 'miss',
+          issues: [],
+        },
+      },
+    })
+    const html = renderRow(quoteLoading)
+    const loading = historyLoading || quoteLoading
+    expect(html).toContain(`<tr aria-busy="${loading}">`)
+    expect(html).toContain('class="row-refresh"')
+    expect(html.includes('aria-label="更新中"')).toBe(loading)
+    expect(html).not.toContain('更新中</span>')
+    expect(html).toContain('¥10.00')
+    expect(html).toContain('¥0.3887')
+    expect(html).toContain('3.89%')
+  },
+)
 
 it('shows a concise refresh failure while keeping valuation and fetch time available', async () => {
   const data = buildHistory(
@@ -66,6 +103,7 @@ it('shows a concise refresh failure while keeping valuation and fetch time avail
   })
   const html = renderRow()
   expect(html).toContain('更新失败</span>')
+  expect(html).not.toContain('更新中')
   expect(html).toContain('获取于 10/20 09:00')
   expect(html).not.toContain('更新失败 · 使用')
   expect(html).toContain('3.89%')
