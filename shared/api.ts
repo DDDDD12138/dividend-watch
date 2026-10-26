@@ -25,6 +25,10 @@ export interface StockIdentity {
 export interface Company extends StockIdentity {
   name: string
 }
+export interface CompanyListing {
+  /** Listing date for this security's market, not another share class. */
+  listingDate: string | null
+}
 export interface Quote extends Company {
   price: string | null
   quoteTime: string | null

@@ -3,12 +3,14 @@ import type {
   ApiResponse,
   AllocationHistory,
   Company,
+  CompanyListing,
   DividendHistory,
   Issue,
   QuoteItem,
 } from '../shared/api'
 import { fetchQuotes } from './providers/tencent'
 import { fetchDividends } from './providers/eastmoney'
+import { fetchListing } from './providers/listing'
 import { allocationUrl, fetchAllocations } from './providers/allocations'
 import type { Fetcher } from './providers/http'
 import { buildHistory } from './services/history'
@@ -172,6 +174,53 @@ export function createApp(
         { error: { code: 'UPSTREAM_UNAVAILABLE', message: '行情暂不可用' } },
         503,
       )
+    }
+  })
+  app.get('/api/companies/:code/listing', async (c) => {
+    const code = c.req.param('code')
+    if (!/^\d{6}$/.test(code))
+      return c.json(
+        { error: { code: 'INVALID_CODE', message: '股票代码必须为六位数字' } },
+        400,
+      )
+    try {
+      const company = await companies.resolve(code)
+      const { value, hit } = await cache.get(
+        `listing/${company.market}/${code}`,
+        86400,
+        () => fetchListing(fetcher, company, now()),
+        () => true,
+      )
+      const response: ApiResponse<CompanyListing> = {
+        data: { listingDate: value.listingDate },
+        meta: {
+          source: 'eastmoney',
+          fetchedAt: value.fetchedAt,
+          cache: hit ? 'hit' : 'miss',
+          issues: [],
+        },
+      }
+      return c.json(response)
+    } catch (error) {
+      return error instanceof CompanyNotFound
+        ? c.json(
+            {
+              error: {
+                code: 'UNSUPPORTED_COMPANY',
+                message: '未找到受支持的 A 股公司',
+              },
+            },
+            404,
+          )
+        : c.json(
+            {
+              error: {
+                code: 'UPSTREAM_UNAVAILABLE',
+                message: '上市日期暂不可用',
+              },
+            },
+            503,
+          )
     }
   })
   app.get('/api/companies/:code/dividends', async (c) => {

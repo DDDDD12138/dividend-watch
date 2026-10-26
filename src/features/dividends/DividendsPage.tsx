@@ -9,7 +9,11 @@ import {
 import { Button } from '../../components/Button'
 import { RefreshButton } from '../../components/RefreshButton'
 import { Link, useParams } from 'react-router'
-import type { AllocationHistory, EastmoneyDividend } from '../../../shared/api'
+import type {
+  AllocationHistory,
+  CompanyListing,
+  EastmoneyDividend,
+} from '../../../shared/api'
 import { useDividends, useResource } from '../../data/api'
 import { timeLabel } from '../../lib/format'
 import type { HistoryRange } from '../../lib/historyYears'
@@ -45,6 +49,11 @@ function CompanyDividends({ code }: { code: string }) {
   const [revision, setRevision] = useState(0)
   const resource = useDividends(code, revision)
   const history = resource.response?.data
+  const listing = useResource<CompanyListing>(
+    `/api/companies/${code}/listing`,
+    revision,
+  )
+  const listingDate = listing.response?.data.listingDate
   const [range, setRange] = useState<HistoryRange>('5')
   const [chartView, setChartView] = useState<'dividend' | 'allocation'>(
     'dividend',
@@ -205,6 +214,7 @@ function CompanyDividends({ code }: { code: string }) {
         </div>
         {chartView === 'allocation' ? (
           <AllocationPanel
+            listingDate={listingDate}
             resource={allocations}
             range={range}
             history={history}
@@ -241,6 +251,7 @@ function CompanyDividends({ code }: { code: string }) {
               </span>
             </div>
             <AnnualChart
+              listingDate={listingDate}
               emphasis={emphasis}
               groups={view!.chart}
               summaries={history.annualSummaries}
@@ -254,6 +265,15 @@ function CompanyDividends({ code }: { code: string }) {
           </p>
         )}
       </section>
+      {!listing.loading && (listing.error || listingDate === null) && (
+        <p className="history-muted" role="status">
+          {listing.error
+            ? listingDate
+              ? '上市日期更新失败'
+              : '上市日期加载失败'
+            : '来源未提供上市日期'}
+        </p>
+      )}
       {resource.error && (history || chartView === 'allocation') && (
         <p className="history-warning" role="alert">
           {resource.response

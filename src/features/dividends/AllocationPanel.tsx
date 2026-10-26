@@ -14,6 +14,7 @@ export function AllocationPanel({
   onYear,
   emphasis,
   onEmphasis,
+  listingDate,
 }: {
   resource: Resource<AllocationHistory>
   range: HistoryRange
@@ -21,6 +22,7 @@ export function AllocationPanel({
   onYear: (year: number) => void
   emphasis: AllocationLayer | null
   onEmphasis: (layer: AllocationLayer | null) => void
+  listingDate?: string | null
 }) {
   const data = resource.response?.data
   const points = useMemo(
@@ -52,6 +54,7 @@ export function AllocationPanel({
         )}
       </div>
       <AllocationChart
+        listingDate={listingDate}
         points={points}
         emphasis={emphasis}
         emptyContent={

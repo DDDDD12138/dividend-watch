@@ -12,8 +12,10 @@ import { ChartTooltip } from './ChartTooltip'
 import { useChartSize, useChartSelection } from './chartHooks'
 import { layoutAmountLabels } from './amountLabels'
 import { dividendAxis } from './axis'
+import { PreListingBand } from './PreListingBand'
 
 interface ChartProps {
+  listingDate?: string | null
   emphasis: ChartLayer | null
   groups: YearGroup[]
   summaries: AnnualDividend[]
@@ -37,6 +39,7 @@ export function AnnualChart(props: ChartProps) {
   )
 }
 function ChartPlot({
+  listingDate,
   emphasis,
   groups,
   summaries,
@@ -195,6 +198,14 @@ function ChartPlot({
             </g>
           )
         })}
+        <PreListingBand
+          x={left}
+          y={plotTop}
+          listingDate={listingDate}
+          years={groups.map((group) => group.year)}
+          step={step}
+          height={plotHeight}
+        />
         {groups.map((group, index) => {
           const x = left + step * (index + 0.5),
             amount = group.summary?.implementedTotal

@@ -76,6 +76,25 @@ beforeEach(() => {
   vi.mocked(useResource).mockReset().mockReturnValue({ loading: false })
 })
 describe('independent dividend detail views', () => {
+  it.each([
+    [undefined, '来源未提供上市日期'],
+    ['网络连接失败', '上市日期加载失败'],
+  ])(
+    'distinguishes an unknown listing date from a failed request: %s',
+    (error, message) => {
+      vi.mocked(useDividends).mockReturnValue({ loading: true })
+      vi.mocked(useResource).mockReturnValueOnce({
+        loading: false,
+        error,
+        response: { data: { listingDate: null }, meta: annual.response!.meta },
+      })
+      const html = renderPage()
+      expect(html).toContain(message)
+      expect(html).not.toContain(
+        error ? '来源未提供上市日期' : '上市日期加载失败',
+      )
+    },
+  )
   it('explicitly identifies retained annual statistics after refresh fails', () => {
     const html = renderToStaticMarkup(
       createElement(AllocationPanel, {
@@ -104,7 +123,11 @@ describe('independent dividend detail views', () => {
       expect(allocationSwitch).not.toContain('disabled')
       expect(html).not.toContain('暂无分红记录')
       // Merely rendering the switch must not eagerly request the allocation endpoint.
-      expect(vi.mocked(useResource).mock.calls[0][0]).toBeNull()
+      expect(
+        vi
+          .mocked(useResource)
+          .mock.calls.some(([path]) => path?.endsWith('/allocations')),
+      ).toBe(false)
     },
   )
   it('can use independently available allocation identity while dividends have failed', () => {

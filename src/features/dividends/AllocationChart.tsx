@@ -9,6 +9,7 @@ import {
 import { ChartTooltip } from './ChartTooltip'
 import { useChartSelection, useChartSize } from './chartHooks'
 import { layoutAmountLabels } from './amountLabels'
+import { PreListingBand } from './PreListingBand'
 import {
   allocationAmount,
   allocationChartAmount,
@@ -18,6 +19,7 @@ import {
 
 export type AllocationLayer = 'profit' | 'cash'
 interface Props {
+  listingDate?: string | null
   points: AllocationPoint[]
   emphasis: AllocationLayer | null
   onSelect: (point: AllocationPoint) => void
@@ -36,6 +38,7 @@ export function AllocationChart(props: Props) {
   )
 }
 function AllocationPlot({
+  listingDate,
   points,
   emphasis,
   onSelect,
@@ -238,6 +241,14 @@ function AllocationPlot({
                   </text>
                 </g>
               ))}
+              <PreListingBand
+                x={left}
+                y={top}
+                listingDate={listingDate}
+                years={points.map((point) => point.year)}
+                step={step}
+                height={bottom - top}
+              />
               {points.map((point, index) => {
                 const profit =
                   point.record?.netProfit == null

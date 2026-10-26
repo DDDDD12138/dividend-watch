@@ -157,6 +157,24 @@
   fill: transparent;
   pointer-events: all;
 }
+.pre-listing-band {
+  pointer-events: none;
+}
+.pre-listing-background {
+  fill: var(--color-surface-subtle);
+}
+.pre-listing-band path {
+  stroke: var(--color-border);
+  stroke-width: 1;
+}
+.pre-listing-band text {
+  fill: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+  paint-order: stroke;
+  stroke: var(--color-surface-subtle);
+  stroke-width: 5px;
+  stroke-linejoin: round;
+}
 .chart-year-target,
 .chart-record-target {
   cursor: pointer;
