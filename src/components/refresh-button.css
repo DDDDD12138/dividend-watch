@@ -1,0 +1,41 @@
+.refresh-button {
+  --refresh-icon-size: 16px;
+}
+.refresh-content {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: inherit;
+  /* Reserve the whole group's loading width, keeping the icon-to-text gap intact. */
+  min-width: calc(var(--refresh-icon-size) + var(--space-2) + 3em);
+}
+.refresh-button svg {
+  flex: none;
+  width: var(--refresh-icon-size);
+  height: var(--refresh-icon-size);
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.refresh-label {
+  display: inline-flex;
+}
+.refresh-suffix {
+  width: 0;
+  overflow: hidden;
+  opacity: 0;
+  transition:
+    width 160ms ease-out,
+    opacity 120ms ease-out;
+}
+.refresh-button[aria-busy='true'] .refresh-suffix {
+  width: 1em;
+  opacity: 1;
+}
+@media (prefers-reduced-motion: reduce) {
+  .refresh-suffix {
+    transition: none;
+  }
+}

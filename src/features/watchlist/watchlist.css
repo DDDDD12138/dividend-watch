@@ -31,48 +31,6 @@
   font-size: var(--font-size-xs);
   font-weight: var(--font-weight-normal);
 }
-.button,
-.sort-trigger {
-  min-height: 44px;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  padding: var(--space-2) var(--space-4);
-  background: var(--color-surface);
-  color: var(--color-text);
-  font-size: var(--font-size-sm);
-  cursor: pointer;
-}
-.button:hover,
-.sort-trigger:hover {
-  border-color: var(--color-primary);
-  background: var(--color-surface-hover);
-}
-.button-primary {
-  padding: var(--space-3) var(--space-5);
-  background: var(--color-primary);
-  color: var(--color-on-primary);
-  border-color: var(--color-primary);
-  white-space: nowrap;
-  font-size: var(--font-size-base);
-}
-.button-primary:hover {
-  background: var(--color-primary-hover);
-  color: var(--color-on-primary);
-}
-.refresh-button,
-.text-button {
-  border: 0;
-  padding: var(--space-2);
-  background: transparent;
-  color: var(--color-text);
-  font-size: var(--font-size-sm);
-  cursor: pointer;
-  min-height: 44px;
-}
-.refresh-button:hover,
-.text-button:hover {
-  color: var(--color-primary);
-}
 .watchlist-surface {
   background: var(--color-surface);
   border: 1px solid var(--color-border);
@@ -101,9 +59,6 @@
   display: flex;
   align-items: center;
   gap: var(--space-3);
-}
-.sort-trigger {
-  background: var(--color-surface-subtle);
 }
 .yield-control {
   position: relative;
@@ -454,10 +409,6 @@
   .page-heading .eyebrow {
     display: none;
   }
-  .button-primary {
-    padding: var(--space-2) var(--space-3);
-    font-size: var(--font-size-sm);
-  }
   .watchlist-surface {
     background: transparent;
     border: 0;
@@ -511,17 +462,10 @@
   .watchlist-toolbar .refresh-button {
     grid-column: 3;
     grid-row: 2;
-    width: 64px;
-    gap: var(--space-1);
-    padding-inline: var(--space-1);
-    font-size: var(--font-size-xs);
   }
   .watchlist-toolbar .sort-control {
     grid-column: 2;
     grid-row: 2;
-    width: 142px;
-    padding-block: var(--space-1);
-    font-size: var(--font-size-xs);
   }
   .yield-control > .error-text {
     position: static;
@@ -532,31 +476,6 @@
     background: transparent;
     border: 0;
     box-shadow: none;
-  }
-  .watchlist-toolbar .sort-trigger {
-    position: relative;
-    min-height: 36px;
-    background: transparent;
-    gap: var(--space-1);
-    padding: var(--space-1) var(--space-2);
-  }
-  /* Keep a 44px touch target around the compact button. */
-  .watchlist-toolbar .sort-trigger::after {
-    content: '';
-    position: absolute;
-    inset-inline: 0;
-    top: 50%;
-    height: 44px;
-    transform: translateY(-50%);
-  }
-  .watchlist-toolbar .sort-menu {
-    top: calc(100% + var(--space-1));
-    width: 100%;
-  }
-  .watchlist-toolbar .sort-menu button {
-    min-height: 44px;
-    gap: var(--space-2);
-    padding-inline: var(--space-2);
   }
   .stock-table {
     display: block;
@@ -695,6 +614,19 @@
   }
 }
 
+@media (max-width: 340px) {
+  .list-heading {
+    grid-column: 1 / -1;
+  }
+  .watchlist-toolbar .sort-control {
+    grid-column: 1;
+    grid-row: 3;
+  }
+  .watchlist-toolbar .refresh-button {
+    grid-row: 3;
+  }
+}
+
 .yield-input:focus-within {
   border-color: var(--color-focus);
   outline: 2px solid var(--color-focus);
@@ -706,124 +638,9 @@
 .yield-input:has(input[aria-invalid='true']):focus-within {
   outline-color: var(--color-danger);
 }
-.sort-control {
-  position: relative;
-  width: 192px;
-  flex: 0 0 192px;
-  max-width: 100%;
-  font-size: var(--font-size-sm);
-}
-.sort-trigger {
-  display: grid;
-  grid-template-columns: 16px minmax(0, 1fr) 16px;
-  align-items: center;
-  text-align: left;
-  gap: var(--space-2);
-  width: 100%;
-  white-space: nowrap;
-  font-size: inherit;
-}
-.sort-trigger svg,
-.refresh-button svg {
-  width: 16px;
-  height: 16px;
-  fill: none;
-  stroke: currentColor;
-  stroke-width: 1.5;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-  flex-shrink: 0;
-}
-.sort-trigger[aria-expanded='true'] {
-  border-color: var(--color-primary);
-}
-.sort-trigger[aria-expanded='true'] .sort-chevron {
-  transform: rotate(180deg);
-}
-.sort-menu {
-  position: absolute;
-  z-index: 2;
-  top: calc(100% + 8px);
-  right: 0;
-  min-width: 100%;
-  padding: var(--space-1);
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  box-shadow: var(--shadow-popover);
-}
-.sort-menu button {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-4);
-  width: 100%;
-  min-height: 40px;
-  padding: var(--space-2) var(--space-3);
-  border: 0;
-  border-radius: var(--radius-sm);
-  background: transparent;
-  color: var(--color-text);
-  white-space: nowrap;
-  text-align: left;
-  font-size: inherit;
-  cursor: pointer;
-}
-.sort-menu button[aria-checked='true'] {
-  color: var(--color-primary);
-  background: var(--color-surface-hover);
-}
-.sort-menu button:hover,
-.sort-menu button:focus-visible {
-  background: var(--color-surface-hover);
-}
-.sort-menu button:focus-visible {
-  outline: 2px solid var(--color-focus);
-  outline-offset: -2px;
-}
-.refresh-button {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: var(--space-2);
-  width: 88px;
-  flex: 0 0 88px;
-  white-space: nowrap;
-  border-radius: var(--radius-md);
-}
-.refresh-button:hover:not(:disabled) {
-  background: var(--color-surface-hover);
-}
-.refresh-button:disabled {
-  color: var(--color-text-muted);
-  cursor: wait;
-}
-.is-spinning {
-  animation: refresh-spin 1s linear infinite;
-}
-@keyframes refresh-spin {
-  to {
-    transform: rotate(360deg);
-  }
-}
-@media (prefers-reduced-motion: reduce) {
-  .is-spinning {
-    animation: none;
-  }
-}
-
-.company-choices .button:disabled {
-  cursor: default;
-  color: var(--color-text-muted);
-  background: var(--color-surface-subtle);
-  border-color: var(--color-border);
-}
 .company-choices li > div {
   min-width: 0;
   overflow-wrap: anywhere;
-}
-.company-choices button {
-  flex-shrink: 0;
 }
 .search-status {
   margin-top: var(--space-3);

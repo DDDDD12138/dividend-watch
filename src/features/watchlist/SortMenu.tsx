@@ -1,5 +1,7 @@
 import { useEffect, useId, useRef, useState } from 'react'
+import { Button } from '../../components/Button'
 import type { Preferences } from './model'
+import './sort-menu.css'
 
 const options = [
   { value: 'added', label: '按添加顺序' },
@@ -41,8 +43,7 @@ export function SortMenu({
         if (!event.currentTarget.contains(event.relatedTarget)) setOpen(false)
       }}
     >
-      <button
-        type="button"
+      <Button
         className="sort-trigger"
         ref={trigger}
         aria-haspopup="menu"
@@ -63,7 +64,7 @@ export function SortMenu({
         <svg className="sort-chevron" viewBox="0 0 20 20" aria-hidden="true">
           <path d="m6 8 4 4 4-4" />
         </svg>
-      </button>
+      </Button>
       {open && (
         <div
           className="sort-menu"

@@ -1,0 +1,104 @@
+.sort-control {
+  position: relative;
+  width: 192px;
+  flex: 0 0 192px;
+  max-width: 100%;
+  font-size: var(--font-size-sm);
+}
+.sort-control .sort-trigger {
+  background: var(--color-surface-subtle);
+  display: grid;
+  grid-template-columns: 16px minmax(0, 1fr) 16px;
+  text-align: left;
+  width: 100%;
+  font-size: inherit;
+}
+.sort-trigger svg {
+  width: 16px;
+  height: 16px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  flex-shrink: 0;
+}
+.sort-trigger[aria-expanded='true'] {
+  border-color: var(--color-primary);
+}
+.sort-trigger[aria-expanded='true'] .sort-chevron {
+  transform: rotate(180deg);
+}
+.sort-menu {
+  position: absolute;
+  z-index: 2;
+  top: calc(100% + 8px);
+  right: 0;
+  min-width: 100%;
+  padding: var(--space-1);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-popover);
+}
+.sort-menu button {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  width: 100%;
+  min-height: 40px;
+  padding: var(--space-2) var(--space-3);
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--color-text);
+  white-space: nowrap;
+  text-align: left;
+  font-size: inherit;
+  cursor: pointer;
+}
+.sort-menu button[aria-checked='true'] {
+  color: var(--color-primary);
+  background: var(--color-surface-hover);
+}
+.sort-menu button:hover,
+.sort-menu button:focus-visible {
+  background: var(--color-surface-hover);
+}
+.sort-menu button:focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: -2px;
+}
+@media (max-width: 760px) {
+  .sort-control {
+    width: 142px;
+    padding-block: var(--space-1);
+    font-size: var(--font-size-xs);
+  }
+  .sort-control .sort-trigger {
+    position: relative;
+    min-height: 36px;
+    background: transparent;
+    gap: var(--space-1);
+    padding: var(--space-1) var(--space-2);
+  }
+  /* Keep a 44px touch target around the compact button. */
+  .sort-control .sort-trigger::after {
+    content: '';
+    position: absolute;
+    inset-inline: 0;
+    top: 50%;
+    height: 44px;
+    transform: translateY(-50%);
+  }
+  .sort-control .sort-menu {
+    top: calc(100% + var(--space-1));
+    width: 100%;
+  }
+  .sort-control .sort-menu button {
+    min-height: 44px;
+    gap: var(--space-2);
+    padding-inline: var(--space-2);
+  }
+}

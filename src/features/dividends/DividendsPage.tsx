@@ -6,12 +6,15 @@ import {
   useRef,
   useState,
 } from 'react'
+import { Button } from '../../components/Button'
+import { RefreshButton } from '../../components/RefreshButton'
 import { Link, useParams } from 'react-router'
 import type { AllocationHistory, EastmoneyDividend } from '../../../shared/api'
 import { useDividends, useResource } from '../../data/api'
 import { timeLabel } from '../../lib/format'
 import type { HistoryRange } from '../../lib/historyYears'
 import { AnnualChart } from './AnnualChart'
+import { ChartLegend } from './ChartLegend'
 import { HistoryRanges } from './HistoryRanges'
 import { AllocationPanel } from './AllocationPanel'
 import type { AllocationLayer } from './AllocationChart'
@@ -168,13 +171,10 @@ function CompanyDividends({ code }: { code: string }) {
             {company ? ` · ${marketNames[company.market]}` : ''} · 人民币 · 税前
           </p>
         </div>
-        <button
-          className="history-button history-refresh"
-          disabled={refreshing}
-          onClick={() => setRevision((value) => value + 1)}
-        >
-          {refreshing ? '加载中…' : '刷新'}
-        </button>
+        <RefreshButton
+          refreshing={refreshing}
+          onRefresh={() => setRevision((value) => value + 1)}
+        />
       </header>
       <section className="history-panel" aria-label="历年分红与盈利图表">
         <div className="history-section-heading">
@@ -227,36 +227,15 @@ function CompanyDividends({ code }: { code: string }) {
         ) : view!.chart.length ? (
           <>
             <div className="history-chart-toolbar">
-              <div
-                className="chart-legend"
-                role="group"
-                aria-label="图表观察重点"
-              >
-                <button
-                  type="button"
-                  aria-pressed={emphasis === 'year'}
-                  onClick={() =>
-                    setEmphasis((previous) =>
-                      previous === 'year' ? null : 'year',
-                    )
-                  }
-                >
-                  <i className="legend-total" aria-hidden="true" />
-                  年度已实施合计
-                </button>
-                <button
-                  type="button"
-                  aria-pressed={emphasis === 'record'}
-                  onClick={() =>
-                    setEmphasis((previous) =>
-                      previous === 'record' ? null : 'record',
-                    )
-                  }
-                >
-                  <i className="legend-record" aria-hidden="true" />
-                  单次实施记录
-                </button>
-              </div>
+              <ChartLegend
+                label="图表观察重点"
+                items={[
+                  { value: 'year', label: '年度已实施合计', tone: 'total' },
+                  { value: 'record', label: '单次实施记录', tone: 'record' },
+                ]}
+                value={emphasis}
+                onChange={setEmphasis}
+              />
               <span className="history-range-dates">
                 {view!.chart[0].year} — {view!.chart.at(-1)!.year}
               </span>
@@ -301,9 +280,8 @@ function CompanyDividends({ code }: { code: string }) {
             >
               <div className="history-section-heading">
                 <h2 id="records-title">每一次分红</h2>
-                <button
-                  type="button"
-                  className="history-expand-all"
+                <Button
+                  variant="text"
                   onClick={() =>
                     setExpanded((previous) => ({
                       ...previous,
@@ -312,7 +290,7 @@ function CompanyDividends({ code }: { code: string }) {
                   }
                 >
                   {allOpen ? '收起全部' : '展开全部'}
-                </button>
+                </Button>
               </div>
               <div>
                 {view!.recent.map(section)}

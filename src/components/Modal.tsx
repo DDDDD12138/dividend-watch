@@ -8,6 +8,7 @@ import {
   type RefObject,
 } from 'react'
 import './modal.css'
+import { Button } from './Button'
 
 export interface ModalHandle {
   close: () => void
@@ -82,8 +83,8 @@ export function Modal({
     >
       <div className="modal-heading">
         <h2 id={titleId}>{title}</h2>
-        <button
-          type="button"
+        <Button
+          variant="text"
           className="modal-close"
           onClick={close}
           aria-label={`关闭${title}`}
@@ -91,7 +92,7 @@ export function Modal({
           <svg viewBox="0 0 20 20" aria-hidden="true">
             <path d="m3 3 14 14M17 3 3 17" />
           </svg>
-        </button>
+        </Button>
       </div>
       <div className="modal-content">{children}</div>
     </dialog>

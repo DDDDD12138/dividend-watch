@@ -7,6 +7,7 @@ import {
   type Ref,
 } from 'react'
 import type { EastmoneyDividend } from '../../../shared/api'
+import { Button } from '../../components/Button'
 import { cash, issueText, type YearGroup } from './model'
 
 export type YearSectionHandle = {
@@ -181,13 +182,14 @@ export function YearSection({
             {rows.map((record) => (
               <tr key={record.recordId}>
                 <th scope="row">
-                  <button
+                  <Button
+                    variant="text"
                     className="record-link"
                     onClick={() => onRecord(record)}
                     aria-label={`查看报告期 ${record.reportDate ?? '未知'}、每股 ${record.cashPerShare ?? '未知'} 元的分红记录`}
                   >
                     {record.reportDate ?? '未提供'}
-                  </button>
+                  </Button>
                 </th>
                 <td className="record-cash">{cash(record.cashPerShare)}</td>
                 <td>

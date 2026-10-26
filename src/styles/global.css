@@ -31,3 +31,17 @@ a {
   outline: 2px solid var(--color-focus);
   outline-offset: 2px;
 }
+
+.is-spinning {
+  animation: refresh-spin 1s linear infinite;
+}
+@keyframes refresh-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .is-spinning {
+    animation: none;
+  }
+}

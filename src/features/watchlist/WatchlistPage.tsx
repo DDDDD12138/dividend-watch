@@ -1,4 +1,6 @@
 import { useState } from 'react'
+import { Button } from '../../components/Button'
+import { RefreshButton } from '../../components/RefreshButton'
 import { validYield } from './model'
 import { StockRow } from './StockRow'
 import { SortMenu } from './SortMenu'
@@ -57,14 +59,14 @@ export function WatchlistPage() {
           <h1>我关注的公司</h1>
           <p className="secondary">看看分红是否稳定，再看看现在的价格。</p>
         </div>
-        <button
-          className="button button-primary"
+        <Button
+          variant="primary"
           onClick={() => {
             setAdding(true)
           }}
         >
           ＋ 添加公司
-        </button>
+        </Button>
       </header>
       {storageError && (
         <p className="error-text" role="alert">
@@ -117,24 +119,13 @@ export function WatchlistPage() {
               value={preferences.sort}
               onChange={(sort) => update({ ...preferences, sort })}
             />
-            <button
-              className="refresh-button"
-              disabled={refreshing}
-              aria-busy={refreshing}
-              onClick={() => {
+            <RefreshButton
+              refreshing={refreshing}
+              onRefresh={() => {
                 setRevision((value) => value + 1)
                 setNotice('已请求刷新，数据将分别更新')
               }}
-            >
-              <svg
-                className={refreshing ? 'is-spinning' : undefined}
-                viewBox="0 0 20 20"
-                aria-hidden="true"
-              >
-                <path d="M16 8a6 6 0 1 0 0 5M16 3v5h-5" />
-              </svg>
-              {refreshing ? '刷新中' : '刷新'}
-            </button>
+            />
           </div>
         </div>
         {quotes.error && codes.length > 0 && (
@@ -193,9 +184,7 @@ export function WatchlistPage() {
             <p className="secondary">
               添加你关注的公司，查看历史分红与目标价格。
             </p>
-            <button className="button" onClick={() => setAdding(true)}>
-              添加关注
-            </button>
+            <Button onClick={() => setAdding(true)}>添加关注</Button>
           </div>
         )}
         <p className="table-footer">

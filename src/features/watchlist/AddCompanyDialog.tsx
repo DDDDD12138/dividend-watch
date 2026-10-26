@@ -1,4 +1,5 @@
 import { useRef, useState } from 'react'
+import { Button } from '../../components/Button'
 import { Modal } from '../../components/Modal'
 import type { Company } from '../../../shared/api'
 import { useCompanySearch } from './useWatchlist'
@@ -62,13 +63,12 @@ export function AddCompanyDialog({
         ) : search.error ? (
           <>
             {search.error}{' '}
-            <button
-              type="button"
-              className="text-button"
+            <Button
+              variant="text"
               onClick={() => setRevision((value) => value + 1)}
             >
               重试
-            </button>
+            </Button>
           </>
         ) : query.trim() && !composing && search.response?.data.length === 0 ? (
           '没有匹配的 A 股公司'
@@ -91,9 +91,7 @@ export function AddCompanyDialog({
                     {company.code} · {marketNames[company.market]}
                   </span>
                 </div>
-                <button
-                  type="button"
-                  className="button"
+                <Button
                   disabled={added || full}
                   onClick={() => {
                     onAdd(company)
@@ -101,7 +99,7 @@ export function AddCompanyDialog({
                   }}
                 >
                   {added ? '已关注' : '添加'}
-                </button>
+                </Button>
               </li>
             )
           })}
@@ -119,9 +117,8 @@ export function AddCompanyDialog({
                   <strong>{names[code] ?? code}</strong>
                   {names[code] && <span className="secondary">{code}</span>}
                 </div>
-                <button
-                  type="button"
-                  className="text-button"
+                <Button
+                  variant="text"
                   aria-label={`移除 ${names[code] ?? code}`}
                   onClick={() => {
                     onRemove(code)
@@ -129,7 +126,7 @@ export function AddCompanyDialog({
                   }}
                 >
                   移除
-                </button>
+                </Button>
               </li>
             ))}
           </ul>

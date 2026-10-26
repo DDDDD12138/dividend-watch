@@ -51,29 +51,6 @@
 .history-heading p:last-child {
   margin-bottom: 0;
 }
-.history-button {
-  min-height: 44px;
-  padding: var(--space-2) var(--space-3);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  color: var(--color-text);
-  background: var(--color-surface);
-  font-size: var(--font-size-sm);
-  cursor: pointer;
-  white-space: nowrap;
-}
-.history-button:hover {
-  background: var(--color-surface-hover);
-  border-color: var(--color-primary);
-}
-.history-button:disabled {
-  cursor: wait;
-  color: var(--color-text-muted);
-}
-.history-refresh {
-  width: 88px;
-  flex: 0 0 88px;
-}
 .history-panel {
   padding: var(--space-6);
   border: 1px solid var(--color-border);
@@ -152,50 +129,6 @@
 .history-ranges button[aria-pressed='true'] {
   background: var(--color-surface);
   color: var(--color-primary);
-}
-.chart-legend {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: var(--space-1);
-  margin: var(--space-5) 0 0;
-  font-size: var(--font-size-xs);
-  color: var(--color-text-muted);
-}
-.chart-legend button {
-  display: inline-flex;
-  align-items: center;
-  min-height: 32px;
-  padding: var(--space-1) var(--space-2);
-  border: 1px solid transparent;
-  border-radius: var(--radius-sm);
-  background: transparent;
-  color: inherit;
-  font: inherit;
-  cursor: pointer;
-}
-.chart-legend button[aria-pressed='true'] {
-  border-color: var(--color-border);
-  background: var(--color-surface-hover);
-  color: var(--color-primary);
-}
-@media (hover: hover) {
-  .chart-legend button:hover {
-    border-color: var(--color-border);
-  }
-}
-.chart-legend i {
-  display: inline-block;
-  width: 10px;
-  height: 10px;
-  border-radius: 0;
-  margin-right: var(--space-2);
-}
-.legend-total {
-  background: var(--color-dividend-total);
-}
-.legend-record {
-  background: var(--color-dividend-record);
 }
 .annual-chart {
   height: 400px;
@@ -295,21 +228,6 @@
 }
 .history-records > .history-section-heading {
   margin-bottom: var(--space-4);
-}
-.history-expand-all {
-  min-height: 44px;
-  padding: var(--space-2) var(--space-3);
-  border: 0;
-  border-radius: var(--radius-md);
-  background: transparent;
-  color: var(--color-primary);
-  font-size: var(--font-size-sm);
-  white-space: nowrap;
-  cursor: pointer;
-}
-.history-expand-all:hover {
-  text-decoration: underline;
-  text-underline-offset: 3px;
 }
 .dividend-year {
   --year-padding-inline: var(--space-5);
@@ -420,17 +338,7 @@
   font-weight: var(--font-weight-semibold);
 }
 .record-link {
-  padding: var(--space-1) 0;
-  border: 0;
-  background: transparent;
-  color: var(--color-primary);
-  cursor: pointer;
-  text-decoration: underline;
-  text-decoration-style: dotted;
-  text-underline-offset: 4px;
-}
-.record-link:hover {
-  text-decoration-style: solid;
+  margin-inline: calc(-1 * var(--space-3));
 }
 .record-progress {
   display: inline-block;
@@ -611,9 +519,6 @@
   gap: var(--space-3);
   margin-top: var(--space-4);
 }
-.history-chart-toolbar .chart-legend {
-  margin: 0;
-}
 .chart-empty {
   height: 100%;
   display: grid;
@@ -666,9 +571,6 @@
 .allocation-target:focus-visible .chart-hit {
   stroke: var(--color-focus);
   stroke-width: 2;
-}
-.allocation-target:focus-visible .allocation-ratio-value {
-  text-decoration: underline;
 }
 .allocation-ratios {
   border-top: 1px solid var(--color-border);
@@ -806,10 +708,8 @@
   font-size: var(--font-size-xs);
   color: var(--color-text-muted);
 }
-.allocation-actions button {
+.allocation-actions .button {
   margin-left: auto;
-  color: var(--color-primary);
-  font-size: var(--font-size-xs);
 }
 @media (max-width: 650px) {
   .history-view-switch {

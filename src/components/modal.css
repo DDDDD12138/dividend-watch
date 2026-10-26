@@ -34,19 +34,12 @@ body:has(.modal[open]) {
   font-size: var(--font-size-lg);
   overflow-wrap: anywhere;
 }
-.modal-close {
-  display: grid;
-  place-items: center;
-  flex: none;
+.modal .modal-close {
   width: 44px;
   height: 44px;
   margin-inline-end: calc(-1 * var(--space-3));
   padding: 0;
-  border: 0;
-  border-radius: var(--radius-md);
   color: var(--color-text-muted);
-  background: transparent;
-  cursor: pointer;
 }
 .modal-close svg {
   width: 20px;
@@ -57,9 +50,8 @@ body:has(.modal[open]) {
   stroke-linecap: round;
 }
 @media (hover: hover) {
-  .modal-close:hover {
+  .modal .modal-close:enabled:hover {
     color: var(--color-text);
-    background: var(--color-surface-hover);
   }
 }
 .modal-content {

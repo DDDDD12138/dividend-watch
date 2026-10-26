@@ -1,4 +1,5 @@
 import { useRef } from 'react'
+import { Button } from '../../components/Button'
 import { Modal, type ModalHandle } from '../../components/Modal'
 import type { AnnualDividend } from '../../../shared/api'
 import { timeLabel } from '../../lib/format'
@@ -109,15 +110,14 @@ export function AllocationDialog({
         <div className="allocation-actions">
           <span>东方财富 · {timeLabel(fetchedAt)}</span>
           {onYear && (
-            <button
-              className="history-button"
+            <Button
               onClick={() => {
                 modal.current?.close()
                 onYear(point.year)
               }}
             >
               查看当年分红记录 →
-            </button>
+            </Button>
           )}
         </div>
       </div>

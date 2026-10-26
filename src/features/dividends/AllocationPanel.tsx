@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import type { AllocationHistory, DividendHistory } from '../../../shared/api'
 import type { Resource } from '../../data/api'
+import { ChartLegend } from './ChartLegend'
 import { AllocationChart, type AllocationLayer } from './AllocationChart'
 import { AllocationDialog, type AllocationSelection } from './AllocationDialog'
 import { allocationView } from './allocationModel'
@@ -34,29 +35,16 @@ export function AllocationPanel({
   return (
     <>
       <div className="history-chart-toolbar">
-        <div
-          className="chart-legend"
-          role="group"
-          aria-label="分红比例观察重点"
-        >
-          {(
-            [
-              ['profit', 'legend-total', '归母净利润'],
-              ['cash', 'legend-record', '现金分红'],
-            ] as const
-          ).map(([layer, className, label]) => (
-            <button
-              key={layer}
-              type="button"
-              disabled={!points.length}
-              aria-pressed={emphasis === layer}
-              onClick={() => onEmphasis(emphasis === layer ? null : layer)}
-            >
-              <i className={className} aria-hidden="true" />
-              {label}
-            </button>
-          ))}
-        </div>
+        <ChartLegend
+          label="分红比例观察重点"
+          items={[
+            { value: 'profit', label: '归母净利润', tone: 'total' },
+            { value: 'cash', label: '现金分红', tone: 'record' },
+          ]}
+          value={emphasis}
+          onChange={onEmphasis}
+          disabled={!points.length}
+        />
         {points.length > 0 && (
           <span className="history-range-dates">
             {points[0].year} — {points.at(-1)!.year}
