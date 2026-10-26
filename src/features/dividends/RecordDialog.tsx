@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef } from 'react'
+import { Modal } from '../../components/Modal'
 import type { Company, EastmoneyDividend } from '../../../shared/api'
 import { cash } from './model'
 import { timeLabel } from '../../lib/format'
@@ -14,13 +14,6 @@ export function RecordDialog({
   fetchedAt: string
   onClose: () => void
 }) {
-  const dialog = useRef<HTMLDialogElement>(null),
-    title = useId()
-  useEffect(() => {
-    const element = dialog.current
-    element?.showModal()
-    return () => element?.close()
-  }, [])
   const fields = [
     ['公司', `${company.name} · ${company.code}`],
     [
@@ -38,25 +31,7 @@ export function RecordDialog({
     ['每 10 股转增', record.transferRatio],
   ]
   return (
-    <dialog
-      className="record-dialog"
-      ref={dialog}
-      aria-labelledby={title}
-      onCancel={onClose}
-      onClose={(event) => {
-        if (!event.currentTarget.open) onClose()
-      }}
-    >
-      <div className="record-dialog-heading">
-        <h2 id={title}>分红记录</h2>
-        <button
-          className="history-button"
-          onClick={onClose}
-          aria-label="关闭分红记录"
-        >
-          关闭
-        </button>
-      </div>
+    <Modal title="分红记录" className="record-dialog" onClose={onClose}>
       <div className="record-amount">
         <span>每股现金分红 · 税前</span>
         <strong>{cash(record.cashPerShare)}</strong>
@@ -81,6 +56,6 @@ export function RecordDialog({
         </p>
       )}
       <p className="history-muted">东方财富 · 获取于 {timeLabel(fetchedAt)}</p>
-    </dialog>
+    </Modal>
   )
 }

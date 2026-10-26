@@ -333,8 +333,7 @@
   text-align: center;
   padding: var(--space-12) var(--space-6);
 }
-.empty-state h2,
-.dialog-heading h2 {
+.empty-state h2 {
   font-size: var(--font-size-xl);
   margin-block: var(--space-3);
 }
@@ -352,28 +351,7 @@
   font-size: var(--font-size-2xl);
 }
 .add-dialog {
-  width: 460px;
-  max-width: calc(100% - 32px);
-  max-height: calc(100dvh - 32px);
-  overflow: auto;
-  padding: var(--space-6);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-lg);
-  background: var(--color-surface);
-  color: var(--color-text);
-  box-shadow: var(--shadow-dialog);
-}
-.add-dialog::backdrop {
-  background: var(--color-overlay);
-}
-body:has(.add-dialog[open]) {
-  overflow: hidden;
-}
-.dialog-heading {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-4);
+  --modal-width: 460px;
 }
 .company-search {
   width: 100%;
@@ -714,9 +692,6 @@ body:has(.add-dialog[open]) {
   }
   .page-footer {
     margin-top: var(--space-4);
-  }
-  .add-dialog {
-    padding: var(--space-5);
   }
 }
 

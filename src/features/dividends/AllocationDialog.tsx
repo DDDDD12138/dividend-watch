@@ -1,4 +1,5 @@
-import { useEffect, useId, useRef } from 'react'
+import { useRef } from 'react'
+import { Modal, type ModalHandle } from '../../components/Modal'
 import type { AnnualDividend } from '../../../shared/api'
 import { timeLabel } from '../../lib/format'
 import { cash } from './model'
@@ -19,35 +20,16 @@ export function AllocationDialog({
   onClose: () => void
   onYear?: (year: number) => void
 }) {
-  const dialog = useRef<HTMLDialogElement>(null),
-    title = useId()
+  const modal = useRef<ModalHandle>(null)
   const { point, fetchedAt } = selection
   const row = point.record!
-  useEffect(() => {
-    const node = dialog.current
-    node?.showModal()
-    return () => node?.close()
-  }, [])
   return (
-    <dialog
-      className="record-dialog allocation-dialog"
-      ref={dialog}
-      aria-labelledby={title}
-      onCancel={onClose}
-      onClose={(event) => {
-        if (!event.currentTarget.open) onClose()
-      }}
+    <Modal
+      ref={modal}
+      title={`${point.year} 财年 · 分红比例`}
+      className="allocation-dialog"
+      onClose={onClose}
     >
-      <div className="record-dialog-heading">
-        <h2 id={title}>{point.year} 财年 · 分红比例</h2>
-        <button
-          className="history-button"
-          onClick={onClose}
-          aria-label="关闭年度分配概览"
-        >
-          关闭
-        </button>
-      </div>
       <div className="allocation-overview">
         <div className="allocation-hero">
           <p className="allocation-caption">现金分红比例</p>
@@ -130,7 +112,7 @@ export function AllocationDialog({
             <button
               className="history-button"
               onClick={() => {
-                onClose()
+                modal.current?.close()
                 onYear(point.year)
               }}
             >
@@ -139,6 +121,6 @@ export function AllocationDialog({
           )}
         </div>
       </div>
-    </dialog>
+    </Modal>
   )
 }

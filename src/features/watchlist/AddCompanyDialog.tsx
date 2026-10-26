@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState } from 'react'
+import { useRef, useState } from 'react'
+import { Modal } from '../../components/Modal'
 import type { Company } from '../../../shared/api'
 import { useCompanySearch } from './useWatchlist'
 
@@ -16,39 +17,20 @@ export function AddCompanyDialog({
   onRemove: (code: string) => void
   onClose: () => void
 }) {
-  const dialog = useRef<HTMLDialogElement>(null)
+  const searchInput = useRef<HTMLInputElement>(null)
   const [query, setQuery] = useState('')
   const [composing, setComposing] = useState(false)
   const [revision, setRevision] = useState(0)
   const [notice, setNotice] = useState('')
   const search = useCompanySearch(query, composing, revision)
-  useEffect(() => {
-    const element = dialog.current
-    element?.showModal()
-    return () => element?.close()
-  }, [])
   const full = codes.length >= 50
   return (
-    <dialog
-      ref={dialog}
+    <Modal
+      title="添加关注"
       className="add-dialog"
-      aria-labelledby="add-title"
-      onCancel={onClose}
-      onClose={(event) => {
-        if (!event.currentTarget.open) onClose()
-      }}
+      initialFocusRef={searchInput}
+      onClose={onClose}
     >
-      <div className="dialog-heading">
-        <h2 id="add-title">添加关注</h2>
-        <button
-          type="button"
-          className="button"
-          onClick={onClose}
-          aria-label="关闭添加公司"
-        >
-          关闭
-        </button>
-      </div>
       <p className="secondary" id="company-scope">
         搜索沪、深、北交易所 A 股
       </p>
@@ -56,6 +38,7 @@ export function AddCompanyDialog({
         公司名称或代码
       </label>
       <input
+        ref={searchInput}
         id="company-search"
         className="company-search"
         placeholder="输入公司名称或代码"
@@ -152,6 +135,6 @@ export function AddCompanyDialog({
           </ul>
         </section>
       )}
-    </dialog>
+    </Modal>
   )
 }

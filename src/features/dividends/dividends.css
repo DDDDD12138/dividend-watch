@@ -13,8 +13,7 @@
   text-decoration: underline;
 }
 .history-heading,
-.history-section-heading,
-.record-dialog-heading {
+.history-section-heading {
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -81,8 +80,7 @@
   border-radius: var(--radius-lg);
   background: var(--color-surface);
 }
-.history-page h2,
-.record-dialog h2 {
+.history-page h2 {
   margin: 0;
   font-size: var(--font-size-lg);
 }
@@ -474,24 +472,6 @@
   width: fit-content;
   padding-block: var(--space-2);
 }
-.record-dialog {
-  width: 520px;
-  max-width: calc(100% - 32px);
-  max-height: calc(100dvh - 32px);
-  overflow: auto;
-  padding: var(--space-6);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-lg);
-  background: var(--color-surface);
-  color: var(--color-text);
-  box-shadow: var(--shadow-dialog);
-}
-.record-dialog::backdrop {
-  background: var(--color-overlay);
-}
-body:has(.record-dialog[open]) {
-  overflow: hidden;
-}
 .record-amount {
   padding: var(--space-5);
   margin-block: var(--space-5);
@@ -589,9 +569,6 @@ body:has(.record-dialog[open]) {
   }
   .year-problems {
     padding-inline: var(--space-4);
-  }
-  .record-dialog {
-    padding: var(--space-5);
   }
   .record-dialog dl > div {
     grid-template-columns: 110px minmax(0, 1fr);
@@ -722,11 +699,10 @@ body:has(.record-dialog[open]) {
   font-size: var(--font-size-xs);
 }
 .allocation-dialog {
-  width: 480px;
+  --modal-width: 480px;
 }
-.allocation-dialog .record-dialog-heading {
-  padding-bottom: var(--space-4);
-  border-bottom: 1px solid var(--color-border);
+.allocation-dialog .allocation-overview {
+  border-top: 1px solid var(--color-border);
 }
 .allocation-dialog p {
   margin: 0;
