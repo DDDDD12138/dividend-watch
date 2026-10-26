@@ -28,8 +28,8 @@ export function WatchlistPage() {
   const names = {
     ...addedNames,
     ...Object.fromEntries(
-      (quotes.response?.data ?? []).flatMap((item) =>
-        item.quote ? [[item.code, item.quote.name]] : [],
+      Object.entries(quotes.items).flatMap(([code, item]) =>
+        item.quote ? [[code, item.quote.name]] : [],
       ),
     ),
   }
@@ -49,6 +49,11 @@ export function WatchlistPage() {
     const codes = preferences.codes.filter((item) => item !== code)
     ranking.changeCompanies(codes)
     update({ ...preferences, codes })
+    setAddedNames((previous) => {
+      const next = { ...previous }
+      delete next[code]
+      return next
+    })
     setNotice(`已移除 ${names[code] ?? code}`)
   }
   return (
@@ -130,7 +135,9 @@ export function WatchlistPage() {
         </div>
         {quotes.error && codes.length > 0 && (
           <p className="table-message error-text" role="status">
-            {quotes.response ? '行情更新失败' : '行情加载失败'}
+            {Object.values(quotes.items).some((item) => item.quote)
+              ? '行情更新失败'
+              : '行情加载失败'}
           </p>
         )}
         {codes.length ? (
@@ -163,9 +170,7 @@ export function WatchlistPage() {
                   key={code}
                   code={code}
                   name={names[code]}
-                  quote={quotes.response?.data.find(
-                    (item) => item.code === code,
-                  )}
+                  item={quotes.items[code]}
                   quoteLoading={quotes.loading}
                   quoteError={quotes.error}
                   expectedYield={preferences.expectedYield}
@@ -198,8 +203,8 @@ export function WatchlistPage() {
             <p>
               行情来自腾讯，分红来自东方财富。打开页面或手动刷新时获取数据。
             </p>
-            {quotes.response && (
-              <p>行情获取时间：{timeLabel(quotes.response.meta.fetchedAt)}</p>
+            {quotes.fetchedAt && (
+              <p>行情获取时间：{timeLabel(quotes.fetchedAt)}</p>
             )}
             <p>
               各公司行情时间见价格提示；“—”表示数据不可用，并非零分红。自选与设置保存在本浏览器。

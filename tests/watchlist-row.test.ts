@@ -27,9 +27,8 @@ function renderRow(quoteLoading = false) {
             expectedYield: '5.5',
             revision: 1,
             onResult: vi.fn(),
-            quote: {
-              code: '601939',
-              error: null,
+            item: {
+              failed: false,
               quote: {
                 ...bankCompanies[0],
                 price: '10',

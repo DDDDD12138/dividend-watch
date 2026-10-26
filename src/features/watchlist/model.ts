@@ -1,6 +1,7 @@
 import type { DividendHistory, Quote } from '../../../shared/api'
 import { calculateMetrics, units } from '../../../shared/money'
 import { historyYears } from '../../lib/historyYears'
+import { isUsableQuote } from './quotes'
 
 export interface Preferences {
   version: 1
@@ -55,7 +56,7 @@ export function metricsFor(
 ) {
   return calculateMetrics(
     history?.referenceDividend.cashPerShare ?? null,
-    quote?.quoteTime ? quote.price : null,
+    isUsableQuote(quote) ? quote.price : null,
     expectedYield,
   )
 }

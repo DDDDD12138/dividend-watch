@@ -1,16 +1,16 @@
-import { useEffect, useState } from 'react'
-import type { Quote, QuoteItem } from '../../../shared/api'
+import { useEffect } from 'react'
 import { metricsFor, recentYears } from './model'
 import { percent, timeLabel } from '../../lib/format'
 import { Link } from 'react-router'
 import { useDividends } from '../../data/api'
 import { issueText } from '../dividends/model'
 import type { StockRowResult } from './order'
+import { isUsableQuote, type WatchlistQuote } from './quotes'
 
 interface Props {
   code: string
   name?: string
-  quote?: QuoteItem
+  item?: WatchlistQuote
   quoteLoading: boolean
   quoteError?: string
   expectedYield: string
@@ -20,7 +20,7 @@ interface Props {
 export function StockRow({
   code,
   name,
-  quote: item,
+  item,
   quoteLoading,
   quoteError,
   expectedYield,
@@ -29,13 +29,7 @@ export function StockRow({
 }: Props) {
   const history = useDividends(code, revision)
   const data = history.response?.data
-  const currentQuote = item?.quote
-  const validQuote =
-    currentQuote?.price && currentQuote.quoteTime ? currentQuote : null
-  // A successful batch may still contain an error for this company.
-  const [lastQuote, setLastQuote] = useState<Quote | null>(null)
-  if (validQuote && validQuote !== lastQuote) setLastQuote(validQuote)
-  const quote = validQuote ?? lastQuote
+  const quote = item?.quote
   const metrics = metricsFor(data, quote, expectedYield)
   const referenceYield = metrics?.referenceYield
   const loading = history.loading || quoteLoading
@@ -45,7 +39,7 @@ export function StockRow({
   const years = data ? recentYears(data) : []
   const max = Math.max(...years.map((year) => Number(year.amount ?? 0)), 0)
   const reference = data?.referenceDividend
-  const price = quote?.quoteTime ? quote.price : null
+  const price = isUsableQuote(quote) ? quote.price : null
   const dividendStatus = history.error
     ? history.response
       ? '更新失败'
@@ -54,8 +48,8 @@ export function StockRow({
       ? issueText(reference.issues[0])
       : null
   const quoteStatus =
-    !quoteLoading && (quoteError || item?.error || !validQuote)
-      ? quote?.quoteTime
+    !quoteLoading && (quoteError || item?.failed || !quote)
+      ? isUsableQuote(quote)
         ? '更新失败'
         : '行情暂不可用'
       : null

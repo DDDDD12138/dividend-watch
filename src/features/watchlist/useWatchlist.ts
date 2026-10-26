@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import type { ApiResponse, Company, QuoteItem } from '../../../shared/api'
 import { request, useResource } from '../../data/api'
+import { reconcileQuotes, type WatchlistQuote } from './quotes'
 import {
   defaultPreferences,
   parsePreferences,
@@ -50,10 +51,35 @@ export function useCompanySearch(
   }
 }
 export function useQuotes(codes: string[], revision: number) {
-  return useResource<QuoteItem[]>(
-    codes.length ? `/api/quotes?codes=${codes.join(',')}` : null,
+  const key = codes.join(',')
+  const resource = useResource<QuoteItem[]>(
+    key ? `/api/quotes?codes=${key}` : null,
     revision,
   )
+  const [snapshot, setSnapshot] = useState<{
+    key: string
+    response?: ApiResponse<QuoteItem[]>
+    items: Record<string, WatchlistQuote>
+    fetchedAt?: string
+  }>({ key, items: {} })
+  if (snapshot.key !== key || snapshot.response !== resource.response) {
+    // A changed batch is reset by useResource on the next render.
+    const incoming = snapshot.key === key ? resource.response : undefined
+    setSnapshot({
+      key,
+      response: incoming,
+      items: reconcileQuotes(codes, snapshot.items, incoming?.data),
+      fetchedAt: codes.length
+        ? (incoming?.meta.fetchedAt ?? snapshot.fetchedAt)
+        : undefined,
+    })
+  }
+  return {
+    items: snapshot.items,
+    fetchedAt: snapshot.fetchedAt,
+    loading: resource.loading,
+    error: resource.error,
+  }
 }
 export function usePreferences() {
   const [initial] = useState(() => {
