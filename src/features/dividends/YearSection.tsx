@@ -68,7 +68,7 @@ export function YearSection({
         ).matches
         node.scrollIntoView({
           behavior: reducedMotion ? 'instant' : 'smooth',
-          block: 'start',
+          block: 'center',
         })
         heading.current?.focus({ preventScroll: true })
         highlight.current = node.animate(
