@@ -51,7 +51,7 @@ export function PreListingBand({
         y={y + height / 2}
         textAnchor="middle"
         dominantBaseline="central"
-        style={{ writingMode: width < 48 ? 'vertical-rl' : undefined }}
+        style={{ writingMode: width < 42 ? 'vertical-rl' : undefined }}
       >
         未上市
       </text>
