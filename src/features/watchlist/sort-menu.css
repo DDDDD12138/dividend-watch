@@ -8,20 +8,10 @@
 .sort-control .sort-trigger {
   background: var(--color-surface-subtle);
   display: grid;
-  grid-template-columns: 16px minmax(0, 1fr) 16px;
+  grid-template-columns: var(--icon-size) minmax(0, 1fr) var(--icon-size);
   text-align: left;
   width: 100%;
   font-size: inherit;
-}
-.sort-trigger svg {
-  width: 16px;
-  height: 16px;
-  fill: none;
-  stroke: currentColor;
-  stroke-width: 1.5;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-  flex-shrink: 0;
 }
 .sort-trigger[aria-expanded='true'] {
   border-color: var(--color-primary);

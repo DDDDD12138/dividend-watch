@@ -1,5 +1,6 @@
 :root {
   color-scheme: light;
+  --icon-size: 1em;
 
   /* 颜色按用途命名，组件通过变量引用，不依赖具体色值。 */
   --color-bg: #f6f7f2;

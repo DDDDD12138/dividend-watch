@@ -1,3 +1,4 @@
+import { ArrowRight } from 'lucide-react'
 import { useRef } from 'react'
 import { Button } from '../../components/Button'
 import { Modal, type ModalHandle } from '../../components/Modal'
@@ -116,7 +117,8 @@ export function AllocationDialog({
                 onYear(point.year)
               }}
             >
-              查看当年分红记录 →
+              查看当年分红记录
+              <ArrowRight />
             </Button>
           )}
         </div>

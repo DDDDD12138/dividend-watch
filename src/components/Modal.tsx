@@ -1,3 +1,4 @@
+import { X } from 'lucide-react'
 import {
   useId,
   useImperativeHandle,
@@ -89,9 +90,7 @@ export function Modal({
           onClick={close}
           aria-label={`关闭${title}`}
         >
-          <svg viewBox="0 0 20 20" aria-hidden="true">
-            <path d="m3 3 14 14M17 3 3 17" />
-          </svg>
+          <X />
         </Button>
       </div>
       <div className="modal-content">{children}</div>

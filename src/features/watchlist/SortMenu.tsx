@@ -1,3 +1,4 @@
+import { Check, ChevronDown, ListSortDescending } from 'lucide-react'
 import { useEffect, useId, useRef, useState } from 'react'
 import { Button } from '../../components/Button'
 import type { Preferences } from './model'
@@ -57,13 +58,9 @@ export function SortMenu({
           }
         }}
       >
-        <svg viewBox="0 0 20 20" aria-hidden="true">
-          <path d="M4 5h12M4 10h8M4 15h4" />
-        </svg>
+        <ListSortDescending />
         <span>{options[selected].label}</span>
-        <svg className="sort-chevron" viewBox="0 0 20 20" aria-hidden="true">
-          <path d="m6 8 4 4 4-4" />
-        </svg>
+        <ChevronDown className="sort-chevron" />
       </Button>
       {open && (
         <div
@@ -111,9 +108,7 @@ export function SortMenu({
               }}
             >
               <span>{option.label}</span>
-              <span aria-hidden="true">
-                {value === option.value ? '✓' : ''}
-              </span>
+              {value === option.value && <Check />}
             </button>
           ))}
         </div>

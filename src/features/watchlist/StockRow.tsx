@@ -1,3 +1,4 @@
+import { LoaderCircle } from 'lucide-react'
 import { useEffect } from 'react'
 import { metricsFor, recentYears } from './model'
 import { percent, timeLabel } from '../../lib/format'
@@ -75,12 +76,13 @@ export function StockRow({
           {code}
           <span className="row-refresh">
             {loading && (
-              <span
+              <LoaderCircle
                 className="is-spinning"
                 role="img"
                 aria-label="更新中"
-                title="更新中"
-              />
+              >
+                <title>更新中</title>
+              </LoaderCircle>
             )}
           </span>
         </span>

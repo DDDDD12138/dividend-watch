@@ -4,6 +4,9 @@
   padding: var(--space-6) var(--space-6) var(--space-10);
 }
 .history-back {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
   color: var(--color-text-muted);
   font-size: var(--font-size-sm);
   text-decoration: none;
@@ -248,8 +251,8 @@
   margin-bottom: var(--space-4);
 }
 .dividend-year {
+  --icon-size: var(--font-size-base);
   --year-padding-inline: var(--space-5);
-  --year-chevron-size: 6px;
   margin-bottom: var(--space-3);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
@@ -272,15 +275,10 @@
   background: var(--color-surface-subtle);
 }
 .year-chevron {
-  width: var(--year-chevron-size);
-  height: var(--year-chevron-size);
-  flex-shrink: 0;
-  border-right: 1.5px solid var(--color-text-muted);
-  border-bottom: 1.5px solid var(--color-text-muted);
-  transform: rotate(-45deg);
+  color: var(--color-text-muted);
 }
 .dividend-year[open] .year-chevron {
-  transform: translateY(-2px) rotate(45deg);
+  transform: rotate(90deg);
 }
 .year-title {
   display: flex;
@@ -340,7 +338,7 @@
 }
 .dividend-table tr > :first-child {
   padding-left: calc(
-    var(--year-padding-inline) + var(--year-chevron-size) + var(--space-3)
+    var(--year-padding-inline) + var(--icon-size) + var(--space-3)
   );
 }
 .dividend-table thead th {

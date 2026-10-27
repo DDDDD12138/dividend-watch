@@ -167,16 +167,9 @@
   font-weight: var(--font-weight-semibold);
 }
 .row-refresh {
-  flex: 0 0 12px;
-  height: 12px;
-}
-.row-refresh .is-spinning {
-  display: block;
-  width: 100%;
-  height: 100%;
-  border: 1.5px solid var(--color-border);
-  border-top-color: currentColor;
-  border-radius: var(--radius-full);
+  --icon-size: 12px;
+  flex: 0 0 var(--icon-size);
+  height: var(--icon-size);
 }
 .money-value {
   font-size: var(--font-size-xl);
@@ -296,6 +289,7 @@
   margin-bottom: var(--space-6);
 }
 .empty-mark {
+  --icon-size: 24px;
   display: inline-grid;
   place-items: center;
   width: 48px;
@@ -303,7 +297,6 @@
   border-radius: var(--radius-full);
   background: var(--color-surface-hover);
   color: var(--color-primary);
-  font-size: var(--font-size-2xl);
 }
 .add-dialog {
   --modal-width: 460px;

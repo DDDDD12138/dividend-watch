@@ -35,19 +35,12 @@ body:has(.modal[open]) {
   overflow-wrap: anywhere;
 }
 .modal .modal-close {
+  --icon-size: 20px;
   width: 44px;
   height: 44px;
   margin-inline-end: calc(-1 * var(--space-3));
   padding: 0;
   color: var(--color-text-muted);
-}
-.modal-close svg {
-  width: 20px;
-  height: 20px;
-  fill: none;
-  stroke: currentColor;
-  stroke-width: 1.5;
-  stroke-linecap: round;
 }
 @media (hover: hover) {
   .modal .modal-close:enabled:hover {

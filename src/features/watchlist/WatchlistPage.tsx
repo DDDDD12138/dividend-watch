@@ -1,3 +1,4 @@
+import { Plus } from 'lucide-react'
 import { useState } from 'react'
 import { Button } from '../../components/Button'
 import { RefreshButton } from '../../components/RefreshButton'
@@ -70,7 +71,8 @@ export function WatchlistPage() {
             setAdding(true)
           }}
         >
-          ＋ 添加公司
+          <Plus />
+          添加公司
         </Button>
       </header>
       {storageError && (
@@ -183,7 +185,7 @@ export function WatchlistPage() {
         ) : (
           <div className="empty-state">
             <span className="empty-mark" aria-hidden="true">
-              ＋
+              <Plus />
             </span>
             <h2>从第一家公司开始</h2>
             <p className="secondary">

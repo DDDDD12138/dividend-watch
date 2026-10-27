@@ -1,3 +1,4 @@
+import { ArrowLeft } from 'lucide-react'
 import {
   useCallback,
   useEffect,
@@ -38,7 +39,8 @@ export function DividendsPage() {
     return (
       <main className="history-page">
         <Link className="history-back" to="/">
-          ← 返回关注列表
+          <ArrowLeft />
+          返回关注列表
         </Link>
         <h1>股票代码无效</h1>
       </main>
@@ -166,7 +168,8 @@ function CompanyDividends({ code }: { code: string }) {
   return (
     <main className="history-page">
       <Link className="history-back" to="/">
-        ← 返回关注列表
+        <ArrowLeft />
+        返回关注列表
       </Link>
       <header className="history-heading">
         <div>

@@ -1,3 +1,4 @@
+import { ChevronRight } from 'lucide-react'
 import {
   useCallback,
   useEffect,
@@ -142,7 +143,7 @@ export function YearSection({
       onToggle={(event) => onOpen(id, event.currentTarget.open)}
     >
       <summary ref={heading}>
-        <span className="year-chevron" aria-hidden="true" />
+        <ChevronRight className="year-chevron" />
         <div className="year-title">
           <strong>{title}</strong>
           <span className="history-muted">
