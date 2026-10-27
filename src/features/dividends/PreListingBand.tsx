@@ -1,4 +1,5 @@
 import { useId } from 'react'
+import { isPreListing } from './listing'
 
 export function PreListingBand({
   x,
@@ -16,9 +17,8 @@ export function PreListingBand({
   height: number
 }) {
   const pattern = useId()
-  if (!listingDate) return null
-  const listingYear = Number(listingDate.slice(0, 4))
-  const width = step * years.filter((year) => year < listingYear).length
+  const width =
+    step * years.filter((year) => isPreListing(year, listingDate)).length
   if (width <= 0) return null
   return (
     <g className="pre-listing-band" role="img" aria-label="这些财年尚未上市">

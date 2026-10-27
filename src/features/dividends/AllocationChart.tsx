@@ -10,6 +10,7 @@ import { ChartTooltip } from './ChartTooltip'
 import { useChartSelection, useChartSize } from './chartHooks'
 import { layoutAmountLabels } from './amountLabels'
 import { PreListingBand } from './PreListingBand'
+import { isPreListing } from './listing'
 import {
   allocationAmount,
   allocationChartAmount,
@@ -146,6 +147,9 @@ function AllocationPlot({
     right,
     points.length <= 5 ? 4 : 8,
   )
+  function isEmptyBeforeListing(point: AllocationPoint) {
+    return isPreListing(point.year, listingDate) && !point.record
+  }
   function text(point: AllocationPoint, index: number) {
     return `${point.year} 财年\n归母净利润：${allocationAmount(point.record?.netProfit)}${point.record?.netProfit == null ? '' : ' 亿元'}\n利润同比：${point.growth ?? '—'}\n已实施现金分红总额：${allocationAmount(point.record?.cashDividend)}${point.record?.cashDividend == null ? '' : ' 亿元'}\n现金分红比例：${texts[index].ratio}`
   }
@@ -356,6 +360,7 @@ function AllocationPlot({
               {/* Values paint after all columns so dense neighboring bars cannot cover text or its hit box. */}
               {points.map((point, index) => {
                 if (!layout[index]?.visible) return null
+                const showData = !isEmptyBeforeListing(point)
                 const profit =
                   point.record?.netProfit == null
                     ? null
@@ -381,33 +386,37 @@ function AllocationPlot({
                   : layout[index].x
                 return (
                   <g
-                    className="allocation-target"
+                    className={showData ? 'allocation-target' : undefined}
                     key={point.year}
-                    {...target(point, index, 'profit')}
+                    {...(showData ? target(point, index, 'profit') : {})}
                   >
-                    <rect
-                      className="chart-hit"
-                      x={labelX - labels.widths[index] / 2}
-                      y={labelY - 16}
-                      width={labels.widths[index]}
-                      height={21}
-                    />
-                    <text
-                      className="chart-amount allocation-profit-label"
-                      x={labelX}
-                      y={labelY}
-                      textAnchor="middle"
-                      pointerEvents="none"
-                    >
-                      {texts[index].profit}
-                    </text>
-                    <rect
-                      className="chart-hit"
-                      x={x(index) - step / 2 + 2}
-                      y={bottom + 4}
-                      width={step - 4}
-                      height={30}
-                    />
+                    {showData && (
+                      <>
+                        <rect
+                          className="chart-hit"
+                          x={labelX - labels.widths[index] / 2}
+                          y={labelY - 16}
+                          width={labels.widths[index]}
+                          height={21}
+                        />
+                        <text
+                          className="chart-amount allocation-profit-label"
+                          x={labelX}
+                          y={labelY}
+                          textAnchor="middle"
+                          pointerEvents="none"
+                        >
+                          {texts[index].profit}
+                        </text>
+                        <rect
+                          className="chart-hit"
+                          x={x(index) - step / 2 + 2}
+                          y={bottom + 4}
+                          width={step - 4}
+                          height={30}
+                        />
+                      </>
+                    )}
                     <text
                       className="chart-year-label"
                       x={x(index)}
@@ -432,40 +441,45 @@ function AllocationPlot({
           aria-label="各年度现金分红比例"
         >
           {width > 0 &&
-            points.map(
-              (point, index) =>
-                layout[index]?.visible && (
-                  <g
-                    className="allocation-target"
-                    key={point.year}
-                    {...target(point, index, 'profit')}
+            points.map((point, index) => {
+              if (!layout[index]?.visible) return null
+              const showData = !isEmptyBeforeListing(point)
+              return (
+                <g
+                  className={showData ? 'allocation-target' : undefined}
+                  key={point.year}
+                  {...(showData ? target(point, index, 'profit') : {})}
+                >
+                  {showData && (
+                    <>
+                      <rect
+                        className="chart-hit"
+                        x={layout[index].x - labels.widths[index] / 2}
+                        y={6}
+                        width={labels.widths[index]}
+                        height={52}
+                      />
+                      <text
+                        className="allocation-ratio-value"
+                        x={layout[index].x}
+                        y={26}
+                        textAnchor="middle"
+                      >
+                        {texts[index].ratio}
+                      </text>
+                    </>
+                  )}
+                  <text
+                    className="allocation-ratio-year"
+                    x={layout[index].x}
+                    y={50}
+                    textAnchor="middle"
                   >
-                    <rect
-                      className="chart-hit"
-                      x={layout[index].x - labels.widths[index] / 2}
-                      y={6}
-                      width={labels.widths[index]}
-                      height={52}
-                    />
-                    <text
-                      className="allocation-ratio-value"
-                      x={layout[index].x}
-                      y={26}
-                      textAnchor="middle"
-                    >
-                      {texts[index].ratio}
-                    </text>
-                    <text
-                      className="allocation-ratio-year"
-                      x={layout[index].x}
-                      y={50}
-                      textAnchor="middle"
-                    >
-                      {point.year}
-                    </text>
-                  </g>
-                ),
-            )}
+                    {point.year}
+                  </text>
+                </g>
+              )
+            })}
         </svg>
       </div>
       {active && <ChartTooltip selection={active} onDismiss={hide} />}

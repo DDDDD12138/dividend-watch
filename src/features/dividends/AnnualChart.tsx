@@ -13,6 +13,7 @@ import { useChartSize, useChartSelection } from './chartHooks'
 import { layoutAmountLabels } from './amountLabels'
 import { dividendAxis } from './axis'
 import { PreListingBand } from './PreListingBand'
+import { isPreListing } from './listing'
 
 interface ChartProps {
   listingDate?: string | null
@@ -209,6 +210,11 @@ function ChartPlot({
         {groups.map((group, index) => {
           const x = left + step * (index + 0.5),
             amount = group.summary?.implementedTotal
+          const showData = !(
+            isPreListing(group.year, listingDate) &&
+            amount == null &&
+            !group.records.length
+          )
           const label = amountLabels[index]
           const labelY =
             (amount == null ? bottom : bottom - height(amount)) - 10
@@ -218,12 +224,18 @@ function ChartPlot({
           return (
             <g key={group.year}>
               <g
-                className="chart-year-target"
-                role={group.records.length ? 'button' : 'img'}
+                className={showData ? 'chart-year-target' : undefined}
+                role={
+                  showData
+                    ? group.records.length
+                      ? 'button'
+                      : 'img'
+                    : undefined
+                }
                 tabIndex={group.records.length ? 0 : undefined}
-                aria-label={text.replaceAll('\n', '，')}
-                data-chart-target="year"
-                data-tooltip={text}
+                aria-label={showData ? text.replaceAll('\n', '，') : undefined}
+                data-chart-target={showData ? 'year' : undefined}
+                data-tooltip={showData ? text : undefined}
                 onClick={
                   group.records.length ? () => onYear(group.year) : undefined
                 }
@@ -247,7 +259,7 @@ function ChartPlot({
                     height={Math.max(height(amount), 2)}
                   />
                 )}
-                {label?.visible && (
+                {showData && label?.visible && (
                   <rect
                     className="chart-hit"
                     x={label.x - label.width / 2}
@@ -256,7 +268,7 @@ function ChartPlot({
                     height={label.height}
                   />
                 )}
-                {visible(index, yearStride) && (
+                {showData && visible(index, yearStride) && (
                   <rect
                     className="chart-hit"
                     x={x - barWidth / 2}
@@ -276,7 +288,7 @@ function ChartPlot({
                       rx={3}
                     />
                   )}
-                  {label?.visible && (
+                  {showData && label?.visible && (
                     <text
                       className="chart-amount"
                       x={label.x}

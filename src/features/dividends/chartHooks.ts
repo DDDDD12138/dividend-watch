@@ -1,4 +1,10 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from 'react'
 import type { ChartSelection } from './ChartTooltip'
 import type { ChartLayer } from './model'
 
@@ -30,13 +36,20 @@ export function useChartSelection(
   const [active, setActive] = useState<
     (ChartSelection & { width: number; height: number; data: object }) | null
   >(null)
-  // Clear transient selection before changed geometry/data paints. Legend choice remains with the page.
-  if (
-    active &&
-    (active.width !== width || active.height !== height || active.data !== data)
-  )
-    setActive(null)
   const hide = useCallback(() => setActive(null), [])
+  // Validate after every commit: rendering can remove a target or its interaction attributes.
+  useLayoutEffect(() => {
+    if (
+      active &&
+      (active.width !== width ||
+        active.height !== height ||
+        active.data !== data ||
+        !root.current?.contains(active.target) ||
+        active.target.getAttribute('data-chart-target') !== active.mode ||
+        active.target.getAttribute('data-tooltip') !== active.text)
+    )
+      hide()
+  })
   function select(node: EventTarget | null) {
     const target =
       node instanceof Element
