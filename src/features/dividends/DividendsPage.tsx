@@ -1,4 +1,3 @@
-import { ArrowLeft } from 'lucide-react'
 import {
   useCallback,
   useEffect,
@@ -9,10 +8,11 @@ import {
 } from 'react'
 import { Button } from '../../components/Button'
 import { RefreshButton } from '../../components/RefreshButton'
-import { Link, useParams } from 'react-router'
+import { useParams } from 'react-router'
+import { CompanyReturnLink } from '../company/CompanyReturnLink'
 import type {
   AllocationHistory,
-  CompanyListing,
+  CompanyProfile,
   EastmoneyDividend,
 } from '../../../shared/api'
 import { useDividends, useResource } from '../../data/api'
@@ -38,10 +38,7 @@ export function DividendsPage() {
   if (!/^\d{6}$/.test(code))
     return (
       <main className="history-page">
-        <Link className="history-back" to="/">
-          <ArrowLeft />
-          返回关注列表
-        </Link>
+        <CompanyReturnLink code={code} />
         <h1>股票代码无效</h1>
       </main>
     )
@@ -51,11 +48,11 @@ function CompanyDividends({ code }: { code: string }) {
   const [revision, setRevision] = useState(0)
   const resource = useDividends(code, revision)
   const history = resource.response?.data
-  const listing = useResource<CompanyListing>(
-    `/api/companies/${code}/listing`,
+  const profile = useResource<CompanyProfile>(
+    `/api/companies/${code}/profile`,
     revision,
   )
-  const listingDate = listing.response?.data.listingDate
+  const listingDate = profile.response?.data.listingDate
   const [range, setRange] = useState<HistoryRange>('5')
   const [chartView, setChartView] = useState<'dividend' | 'allocation'>(
     'dividend',
@@ -167,10 +164,7 @@ function CompanyDividends({ code }: { code: string }) {
   }
   return (
     <main className="history-page">
-      <Link className="history-back" to="/">
-        <ArrowLeft />
-        返回关注列表
-      </Link>
+      <CompanyReturnLink code={code} />
       <header className="history-heading">
         <div>
           <p className="history-eyebrow">DIVIDEND HISTORY</p>
@@ -268,9 +262,9 @@ function CompanyDividends({ code }: { code: string }) {
           </p>
         )}
       </section>
-      {!listing.loading && (listing.error || listingDate === null) && (
+      {!profile.loading && (profile.error || listingDate === null) && (
         <p className="history-muted" role="status">
-          {listing.error
+          {profile.error
             ? listingDate
               ? '上市日期更新失败'
               : '上市日期加载失败'

@@ -1,4 +1,4 @@
-import { createElement } from 'react'
+import { createElement, type ReactNode } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { MemoryRouter, Route, Routes } from 'react-router'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
@@ -10,6 +10,10 @@ import {
   AllocationDialog,
   type AllocationSelection,
 } from '../src/features/dividends/AllocationDialog'
+
+vi.mock('../src/components/Modal', () => ({
+  Modal: ({ children }: { children: ReactNode }) => children,
+}))
 
 vi.mock('../src/data/api', () => ({
   useDividends: vi.fn(),

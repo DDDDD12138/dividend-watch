@@ -1,4 +1,5 @@
 import { X } from 'lucide-react'
+import { createPortal } from 'react-dom'
 import {
   useId,
   useImperativeHandle,
@@ -20,6 +21,7 @@ interface Props {
   title: string
   onClose: () => void
   className?: string
+  placement?: 'center' | 'side'
   initialFocusRef?: RefObject<HTMLElement | null>
   children: ReactNode
 }
@@ -36,6 +38,7 @@ export function Modal({
   title,
   onClose,
   className,
+  placement = 'center',
   initialFocusRef,
   children,
 }: Props) {
@@ -56,10 +59,10 @@ export function Modal({
 
   useImperativeHandle(ref, () => ({ close }), [])
 
-  return (
+  return createPortal(
     <dialog
       ref={dialog}
-      className={`modal${className ? ` ${className}` : ''}`}
+      className={`modal${placement === 'side' ? ' modal--side' : ''}${className ? ` ${className}` : ''}`}
       aria-labelledby={titleId}
       onClose={(event) => {
         // StrictMode can queue a close event before reopening the same dialog.
@@ -94,6 +97,7 @@ export function Modal({
         </Button>
       </div>
       <div className="modal-content">{children}</div>
-    </dialog>
+    </dialog>,
+    document.body,
   )
 }

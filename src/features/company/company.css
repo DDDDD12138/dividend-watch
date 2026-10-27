@@ -1,0 +1,261 @@
+.company-overview {
+  font-size: var(--font-size-sm);
+}
+.overview-identity h2 {
+  margin: 0 0 var(--space-2);
+  font-size: var(--font-size-2xl);
+  line-height: var(--line-height-tight);
+}
+.overview-identity h2:focus {
+  outline: none;
+}
+.overview-meta,
+.overview-source {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+}
+.overview-profile {
+  min-block-size: 1lh;
+  margin-top: var(--space-3);
+}
+.overview-profile-loading {
+  margin: 0;
+  color: var(--color-text-muted);
+}
+.overview-business {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  color: var(--color-text-muted);
+}
+.overview-business p {
+  flex: 1;
+  min-width: 0;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 1;
+  overflow: hidden;
+  margin: 0;
+}
+.overview-business p.is-expanded {
+  display: block;
+}
+.overview-business .button,
+.overview-profile-error .button {
+  /* Keep the 44px hit area without making the text row taller. */
+  margin-block: calc((1lh - 44px) / 2);
+}
+.overview-profile-error {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--color-danger);
+}
+.overview-quotes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-6);
+  margin-top: var(--space-6);
+}
+.overview-quotes > div {
+  flex: 1 0 auto;
+}
+.overview-quotes > div + div {
+  border-left: 1px solid var(--color-border);
+  padding-left: var(--space-6);
+}
+.overview-label {
+  display: block;
+  color: var(--color-text-muted);
+  margin-bottom: var(--space-1);
+  font-size: var(--font-size-sm);
+}
+.overview-number {
+  font-size: var(--font-size-3xl);
+  font-weight: var(--font-weight-semibold);
+  line-height: var(--line-height-tight);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.overview-unit {
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-normal);
+}
+.overview-yield,
+.calculator-result {
+  color: var(--color-primary);
+}
+.overview-quote-time {
+  margin-top: var(--space-2);
+}
+.overview-target {
+  background: var(--color-target-bg);
+  border: 1px solid var(--color-expectation-border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-4) var(--space-5);
+  margin-top: var(--space-6);
+  color: var(--color-target-text);
+}
+.overview-target-heading {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+.overview-target-heading .overview-label {
+  margin-top: var(--space-half);
+  margin-bottom: 0;
+}
+.overview-target p {
+  margin: var(--space-2) 0 0;
+  color: var(--color-text-muted);
+}
+.overview-target b {
+  color: var(--color-warning);
+}
+.overview-target .is-reached b {
+  color: var(--color-primary);
+}
+.overview-reference {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2) var(--space-4);
+  padding-block: var(--space-4) var(--space-5);
+  border-bottom: 1px solid var(--color-border);
+  color: var(--color-text-muted);
+}
+.overview-reference p {
+  margin: 0;
+}
+.overview-reference b {
+  color: var(--color-text);
+  font-weight: var(--font-weight-semibold);
+}
+.overview-reference a {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  color: var(--color-primary);
+  text-decoration: none;
+}
+.overview-data-status {
+  display: block;
+  color: var(--color-warning);
+  margin-top: var(--space-1);
+}
+.price-calculator {
+  padding-top: var(--space-5);
+}
+.price-calculator h3 {
+  margin: 0;
+  font-size: var(--font-size-base);
+}
+.calculator-modes {
+  display: flex;
+  gap: var(--space-6);
+  margin-top: var(--space-3);
+  border-bottom: 1px solid var(--color-border);
+}
+.calculator-modes button {
+  min-height: 44px;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  background: transparent;
+  color: var(--color-text-muted);
+  padding: var(--space-2) 0;
+  cursor: pointer;
+}
+.calculator-modes button[aria-pressed='true'] {
+  color: var(--color-text);
+  border-bottom-color: var(--color-primary);
+  font-weight: var(--font-weight-semibold);
+}
+.calculator-fields {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 16px minmax(min-content, 1fr);
+  gap: var(--space-3);
+  align-items: center;
+  margin-top: var(--space-5);
+}
+.calculator-input {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: 50px;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--color-expectation-input-border);
+  border-radius: var(--radius-md);
+  color: var(--color-text-muted);
+}
+.calculator-input:focus-within {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 2px;
+}
+.calculator-input input {
+  min-width: 0;
+  width: 100%;
+  border: 0;
+  outline: none;
+  background: transparent;
+  color: var(--color-text);
+  font-size: var(--font-size-2xl);
+  font-weight: var(--font-weight-semibold);
+  appearance: textfield;
+}
+/* Native spinners with step="any" don't expose our separate adjustment sizes. */
+.calculator-input input::-webkit-inner-spin-button,
+.calculator-input input::-webkit-outer-spin-button {
+  appearance: none;
+  margin: 0;
+}
+.calculator-arrow {
+  margin-top: var(--space-6);
+  color: var(--color-text-muted);
+}
+.calculator-result {
+  display: block;
+  min-height: 50px;
+  align-content: center;
+}
+.calculator-presets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-top: var(--space-3);
+}
+.calculator-presets .button[aria-pressed='true'] {
+  background: var(--color-surface-hover);
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}
+.calculator-reset {
+  margin-left: auto;
+}
+.calculator-feedback {
+  min-height: 1.6em;
+  margin: var(--space-3) 0 0;
+  color: var(--color-text-muted);
+}
+.calculator-feedback.error-text {
+  color: var(--color-danger);
+}
+.overview-source {
+  margin-top: var(--space-6);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--color-border);
+}
+@media (max-width: 760px) {
+  .overview-quotes {
+    gap: var(--space-4);
+  }
+  .overview-quotes > div + div {
+    padding-left: var(--space-4);
+  }
+  .overview-target {
+    padding: var(--space-4);
+  }
+}

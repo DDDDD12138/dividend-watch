@@ -11,6 +11,15 @@ export function isUsableQuote(
   return !!(quote?.price && quote.quoteTime)
 }
 
+export function quoteStatusFor(
+  item: WatchlistQuote | undefined,
+  loading: boolean,
+  error?: string,
+) {
+  if (loading || !(error || item?.failed || !item?.quote)) return null
+  return isUsableQuote(item?.quote) ? '更新失败' : '行情暂不可用'
+}
+
 // Retain data only for companies still followed, independently of batch URLs.
 export function reconcileQuotes(
   codes: string[],

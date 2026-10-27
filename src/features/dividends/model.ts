@@ -7,6 +7,7 @@ import type {
 import { EASTMONEY_IMPLEMENTED_PROGRESS } from '../../../shared/api'
 import { units } from '../../../shared/money'
 import { historyYears, type HistoryRange } from '../../lib/historyYears'
+import type { Resource } from '../../data/api'
 export type ChartLayer = 'year' | 'record' | 'profit' | 'cash'
 export interface YearGroup {
   year: number
@@ -14,6 +15,11 @@ export interface YearGroup {
   records: EastmoneyDividend[]
 }
 export const marketNames = { SH: '沪市', SZ: '深市', BJ: '北交所' }
+export function dividendStatusFor(history: Resource<DividendHistory>) {
+  if (history.error) return history.response ? '更新失败' : '分红加载失败'
+  const issue = history.response?.data.referenceDividend.issues[0]
+  return issue ? issueText(issue) : null
+}
 export function issueText(issue: Issue): string {
   const messages: Record<string, string> = {
     AMBIGUOUS_RECORDS: '记录存在歧义，暂不汇总',

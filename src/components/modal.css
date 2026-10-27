@@ -56,8 +56,35 @@ body:has(.modal[open]) {
 .modal-content > :first-child {
   margin-top: 0;
 }
+.modal--side {
+  --modal-padding: var(--space-8);
+  position: fixed;
+  inset: 0 0 0 auto;
+  margin: 0;
+  width: 520px;
+  max-width: 100%;
+  height: 100dvh;
+  max-height: 100dvh;
+  border-radius: 0;
+  border-width: 0 0 0 1px;
+}
+.modal--side .modal-heading {
+  border-bottom: 1px solid var(--color-border);
+}
+.modal--side .modal-heading h2 {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-normal);
+}
+.modal--side .modal-content {
+  padding-top: var(--space-6);
+}
 @media (max-width: 760px) {
   .modal {
     --modal-padding: var(--space-5);
+  }
+  .modal--side {
+    width: 100%;
+    border: 0;
   }
 }

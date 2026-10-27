@@ -27,6 +27,9 @@ function renderRow(quoteLoading = false) {
             expectedYield: '5.5',
             revision: 1,
             onResult: vi.fn(),
+            overviewOpen: false,
+            onOpenOverview: vi.fn(),
+            onCloseOverview: vi.fn(),
             item: {
               failed: false,
               quote: {

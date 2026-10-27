@@ -1,12 +1,14 @@
 import { LoaderCircle } from 'lucide-react'
 import { useEffect } from 'react'
+import { Button } from '../../components/Button'
+import { CompanyOverview } from '../company/CompanyOverview'
 import { metricsFor, recentYears } from './model'
 import { percent, timeLabel } from '../../lib/format'
 import { Link } from 'react-router'
 import { useDividends } from '../../data/api'
-import { issueText } from '../dividends/model'
+import { dividendStatusFor, issueText } from '../dividends/model'
 import type { StockRowResult } from './order'
-import { isUsableQuote, type WatchlistQuote } from './quotes'
+import { isUsableQuote, quoteStatusFor, type WatchlistQuote } from './quotes'
 
 interface Props {
   code: string
@@ -17,6 +19,9 @@ interface Props {
   expectedYield: string
   revision: number
   onResult: (code: string, result: StockRowResult) => void
+  overviewOpen: boolean
+  onOpenOverview: () => void
+  onCloseOverview: () => void
 }
 export function StockRow({
   code,
@@ -27,10 +32,15 @@ export function StockRow({
   expectedYield,
   revision,
   onResult,
+  overviewOpen,
+  onOpenOverview,
+  onCloseOverview,
 }: Props) {
   const history = useDividends(code, revision)
   const data = history.response?.data
   const quote = item?.quote
+  const displayName = quote?.name ?? name ?? data?.company.name
+  const companyName = displayName ?? code
   const metrics = metricsFor(data, quote, expectedYield)
   const referenceYield = metrics?.referenceYield
   const loading = history.loading || quoteLoading
@@ -41,19 +51,8 @@ export function StockRow({
   const max = Math.max(...years.map((year) => Number(year.amount ?? 0)), 0)
   const reference = data?.referenceDividend
   const price = isUsableQuote(quote) ? quote.price : null
-  const dividendStatus = history.error
-    ? history.response
-      ? '更新失败'
-      : '分红加载失败'
-    : reference?.issues[0]
-      ? issueText(reference.issues[0])
-      : null
-  const quoteStatus =
-    !quoteLoading && (quoteError || item?.failed || !quote)
-      ? isUsableQuote(quote)
-        ? '更新失败'
-        : '行情暂不可用'
-      : null
+  const dividendStatus = dividendStatusFor(history)
+  const quoteStatus = quoteStatusFor(item, quoteLoading, quoteError)
   const dividendTitle = [
     reference ? `${reference.fiscalYear} 财年税前每股已实施分红` : '',
     ...(reference?.issues.map(issueText) ?? []),
@@ -68,9 +67,14 @@ export function StockRow({
     <tr aria-busy={loading}>
       <th scope="row" className="company-cell">
         <strong>
-          <Link className="company-name-link" to={`/dividends/${code}`}>
-            {quote?.name ?? name ?? data?.company.name ?? code}
-          </Link>
+          <Button
+            variant="text"
+            className="company-name-button"
+            aria-haspopup="dialog"
+            onClick={onOpenOverview}
+          >
+            {companyName}
+          </Button>
         </strong>
         <span className="secondary company-meta">
           {code}
@@ -86,12 +90,25 @@ export function StockRow({
             )}
           </span>
         </span>
+        {overviewOpen && (
+          <CompanyOverview
+            code={code}
+            name={displayName}
+            quote={isUsableQuote(quote) ? quote : null}
+            history={history}
+            expectedYield={expectedYield}
+            quoteLoading={quoteLoading}
+            quoteStatus={quoteStatus}
+            dividendStatus={dividendStatus}
+            onClose={onCloseOverview}
+          />
+        )}
       </th>
       <td className="trend-cell">
         <Link
           className="dividend-link"
           to={`/dividends/${code}`}
-          aria-label={`查看 ${quote?.name ?? name ?? data?.company.name ?? code} 的分红记录`}
+          aria-label={`查看 ${companyName} 的分红记录`}
         >
           {years.length ? (
             <>

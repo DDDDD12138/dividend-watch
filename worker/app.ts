@@ -3,14 +3,14 @@ import type {
   ApiResponse,
   AllocationHistory,
   Company,
-  CompanyListing,
+  CompanyProfile,
   DividendHistory,
   Issue,
   QuoteItem,
 } from '../shared/api'
 import { fetchQuotes } from './providers/tencent'
 import { fetchDividends } from './providers/eastmoney'
-import { fetchListing } from './providers/listing'
+import { fetchProfile } from './providers/profile'
 import { allocationUrl, fetchAllocations } from './providers/allocations'
 import type { Fetcher } from './providers/http'
 import { buildHistory } from './services/history'
@@ -176,7 +176,7 @@ export function createApp(
       )
     }
   })
-  app.get('/api/companies/:code/listing', async (c) => {
+  app.get('/api/companies/:code/profile', async (c) => {
     const code = c.req.param('code')
     if (!/^\d{6}$/.test(code))
       return c.json(
@@ -186,18 +186,22 @@ export function createApp(
     try {
       const company = await companies.resolve(code)
       const { value, hit } = await cache.get(
-        `listing/${company.market}/${code}`,
+        `profile/${company.market}/${code}`,
         86400,
-        () => fetchListing(fetcher, company, now()),
+        () => fetchProfile(fetcher, company, now()),
         () => true,
       )
-      const response: ApiResponse<CompanyListing> = {
-        data: { listingDate: value.listingDate },
+      const response: ApiResponse<CompanyProfile> = {
+        data: {
+          company: value.company,
+          listingDate: value.listingDate,
+          mainBusiness: value.mainBusiness,
+        },
         meta: {
           source: 'eastmoney',
           fetchedAt: value.fetchedAt,
           cache: hit ? 'hit' : 'miss',
-          issues: [],
+          issues: value.issues,
         },
       }
       return c.json(response)
@@ -216,7 +220,7 @@ export function createApp(
             {
               error: {
                 code: 'UPSTREAM_UNAVAILABLE',
-                message: '上市日期暂不可用',
+                message: '公司资料暂不可用',
               },
             },
             503,

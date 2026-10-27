@@ -11,10 +11,14 @@ import { useWatchlistOrder } from './useWatchlistOrder'
 import { AddCompanyDialog } from './AddCompanyDialog'
 import type { Company } from '../../../shared/api'
 import { timeLabel } from '../../lib/format'
+import { UnfollowedCompanyOverview } from '../company/UnfollowedCompanyOverview'
+import { useCompanyOverviewNavigation } from '../company/useCompanyOverviewNavigation'
 import './watchlist.css'
 
 export function WatchlistPage() {
   useWatchlistPosition()
+  const { overviewCode, openOverview, closeOverview } =
+    useCompanyOverviewNavigation()
   const { preferences, update, storageError } = usePreferences()
   const [revision, setRevision] = useState(0)
   const ranking = useWatchlistOrder(preferences.codes, revision)
@@ -178,6 +182,9 @@ export function WatchlistPage() {
                   expectedYield={preferences.expectedYield}
                   revision={revision}
                   onResult={ranking.onResult}
+                  overviewOpen={overviewCode === code}
+                  onOpenOverview={() => openOverview(code)}
+                  onCloseOverview={closeOverview}
                 />
               ))}
             </tbody>
@@ -224,6 +231,14 @@ export function WatchlistPage() {
           onAdd={add}
           onRemove={remove}
           onClose={() => setAdding(false)}
+        />
+      )}
+      {overviewCode && !preferences.codes.includes(overviewCode) && (
+        <UnfollowedCompanyOverview
+          key={overviewCode}
+          code={overviewCode}
+          expectedYield={preferences.expectedYield}
+          onClose={closeOverview}
         />
       )}
     </main>
