@@ -66,6 +66,11 @@ function render(
         quoteLoading: false,
         quoteStatus: null,
         dividendStatus: null,
+        followed: true,
+        followLimitReached: false,
+        followError: '',
+        onFollow: vi.fn(),
+        onUnfollow: vi.fn(),
         onClose: vi.fn(),
         ...overrides,
       }),
@@ -78,6 +83,48 @@ beforeEach(() => {
     .mockReturnValue({ loading: false, error: '网络连接失败' })
 })
 describe('company overview data boundaries', () => {
+  it.each([
+    [true, true, false, '取消关注'],
+    [false, true, true, '关注'],
+    [false, false, false, '关注'],
+  ])(
+    'limits new follows without blocking removal (followed: %s, full: %s)',
+    (followed, followLimitReached, disabled, label) => {
+      const html = render({ followed, followLimitReached })
+      const button = html.match(/<button[^>]*overview-follow[^>]*>/)?.[0]
+      expect(button).toContain(`aria-label="${label}"`)
+      expect(button?.includes('disabled')).toBe(disabled)
+      expect(html.includes('最多关注 50 家公司')).toBe(
+        !followed && followLimitReached,
+      )
+    },
+  )
+  it('allows following a known company without usable financial data', () => {
+    const html = render({
+      followed: false,
+      quote: { ...quote, price: null },
+      history: { loading: false, error: '网络连接失败' },
+    })
+    const button = html.match(/<button[^>]*overview-follow[^>]*>/)?.[0]
+    expect(button).toBeDefined()
+    expect(button).not.toContain('disabled')
+    expect(html).toContain('中国移动')
+    expect(html).not.toContain('¥105.00')
+  })
+  it('requires a resolved company before adding, but can always remove it', () => {
+    const unavailable = {
+      quote: null,
+      history: { loading: false, error: '网络连接失败' },
+    }
+    const adding = render({ ...unavailable, followed: false })
+    const removing = render({ ...unavailable, followed: true })
+    expect(adding.match(/<button[^>]*overview-follow[^>]*>/)?.[0]).toContain(
+      'disabled',
+    )
+    expect(
+      removing.match(/<button[^>]*overview-follow[^>]*>/)?.[0],
+    ).not.toContain('disabled')
+  })
   it('shows a business field issue without hiding the listing date or valuation', () => {
     vi.mocked(useResource).mockReturnValue({
       loading: false,

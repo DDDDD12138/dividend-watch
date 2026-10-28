@@ -1,8 +1,20 @@
 .company-overview {
   font-size: var(--font-size-sm);
 }
+.overview-title {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin-bottom: var(--space-2);
+}
+.overview-title .button {
+  flex: none;
+}
 .overview-identity h2 {
-  margin: 0 0 var(--space-2);
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  margin: 0;
   font-size: var(--font-size-2xl);
   line-height: var(--line-height-tight);
 }
@@ -10,6 +22,7 @@
   outline: none;
 }
 .overview-meta,
+.overview-follow-limit,
 .overview-source {
   margin: 0;
   color: var(--color-text-muted);

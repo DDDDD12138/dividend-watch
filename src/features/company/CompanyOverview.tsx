@@ -1,7 +1,8 @@
-import { ArrowRight } from 'lucide-react'
+import { ArrowRight, Check, Plus } from 'lucide-react'
 import { useLayoutEffect, useRef, useState } from 'react'
 import { Link, useLocation } from 'react-router'
 import type {
+  Company,
   CompanyProfile,
   DividendHistory,
   Quote,
@@ -12,6 +13,7 @@ import { Modal } from '../../components/Modal'
 import { useResource, type Resource } from '../../data/api'
 import { percent, timeLabel } from '../../lib/format'
 import { marketNames } from '../dividends/model'
+import { isUsableQuote } from '../watchlist/quotes'
 import { PriceCalculator } from './PriceCalculator'
 import './company.css'
 
@@ -24,6 +26,11 @@ interface Props {
   quoteLoading: boolean
   quoteStatus: string | null
   dividendStatus: string | null
+  followed: boolean
+  followLimitReached: boolean
+  followError: string
+  onFollow: (company: Company) => void
+  onUnfollow: () => void
   onClose: () => void
 }
 
@@ -70,6 +77,11 @@ export function CompanyOverview({
   quoteLoading,
   quoteStatus,
   dividendStatus,
+  followed,
+  followLimitReached,
+  followError,
+  onFollow,
+  onUnfollow,
   onClose,
 }: Props) {
   const location = useLocation()
@@ -83,7 +95,7 @@ export function CompanyOverview({
   const company = data?.company ?? history.response?.data.company ?? quote
   const reference = history.response?.data.referenceDividend
   const dividend = reference?.cashPerShare ?? null
-  const price = quote?.price ?? null
+  const price = isUsableQuote(quote) ? quote.price : null
   const metrics = calculateMetrics(dividend, price, expectedYield)
   const target = metrics
     ? metrics.targetPrice
@@ -99,14 +111,36 @@ export function CompanyOverview({
       onClose={onClose}
     >
       <header className="overview-identity">
-        <h2 ref={title} tabIndex={-1}>
-          {name ?? company?.name ?? code}
-        </h2>
+        <div className="overview-title">
+          <h2 ref={title} tabIndex={-1}>
+            {name ?? company?.name ?? code}
+          </h2>
+          <Button
+            className="overview-follow"
+            aria-label={followed ? '取消关注' : '关注'}
+            disabled={!followed && (followLimitReached || !company)}
+            onClick={() => {
+              if (followed) onUnfollow()
+              else if (company) onFollow(company)
+            }}
+          >
+            {followed ? <Check /> : <Plus />}
+            {followed ? '已关注' : '关注'}
+          </Button>
+        </div>
         <p className="overview-meta">
           {code}
           {company ? ` · ${marketNames[company.market]}` : ''}
           {data?.listingDate ? ` · A 股上市 ${data.listingDate}` : ''}
         </p>
+        {followError && (
+          <p className="error-text" role="alert">
+            {followError}
+          </p>
+        )}
+        {!followed && followLimitReached && (
+          <p className="overview-follow-limit">最多关注 50 家公司</p>
+        )}
         <div className="overview-profile" aria-busy={profile.loading}>
           {profile.loading && !data && (
             <p className="overview-profile-loading" role="status">

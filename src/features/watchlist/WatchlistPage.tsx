@@ -5,13 +5,15 @@ import { RefreshButton } from '../../components/RefreshButton'
 import { validYield } from './model'
 import { StockRow } from './StockRow'
 import { SortMenu } from './SortMenu'
-import { usePreferences, useQuotes } from './useWatchlist'
+import { usePreferences } from './useWatchlist'
+import { useQuotes } from './useQuotes'
 import { useWatchlistPosition } from './useWatchlistPosition'
 import { useWatchlistOrder } from './useWatchlistOrder'
+import { useVisibleCompanies } from './useVisibleCompanies'
 import { AddCompanyDialog } from './AddCompanyDialog'
 import type { Company } from '../../../shared/api'
 import { timeLabel } from '../../lib/format'
-import { UnfollowedCompanyOverview } from '../company/UnfollowedCompanyOverview'
+import { CompanyOverviewDialog } from '../company/CompanyOverviewDialog'
 import { useCompanyOverviewNavigation } from '../company/useCompanyOverviewNavigation'
 import './watchlist.css'
 
@@ -20,16 +22,20 @@ export function WatchlistPage() {
   const { overviewCode, openOverview, closeOverview } =
     useCompanyOverviewNavigation()
   const { preferences, update, storageError } = usePreferences()
+  const visibleCodes = useVisibleCompanies(
+    preferences.codes,
+    overviewCode !== null,
+  )
   const [revision, setRevision] = useState(0)
-  const ranking = useWatchlistOrder(preferences.codes, revision)
-  const quotes = useQuotes(preferences.codes, revision)
+  const ranking = useWatchlistOrder(visibleCodes, revision)
+  const quotes = useQuotes(visibleCodes, revision)
   const [yieldInput, setYieldInput] = useState(preferences.expectedYield)
   const [addedNames, setAddedNames] = useState<Record<string, string>>({})
   const [adding, setAdding] = useState(false)
   const [notice, setNotice] = useState('')
   const refreshing = quotes.loading || ranking.loading
   const invalidYield = !validYield(yieldInput)
-  const codes = preferences.sort === 'yield' ? ranking.order : preferences.codes
+  const codes = preferences.sort === 'yield' ? ranking.order : visibleCodes
   const names = {
     ...addedNames,
     ...Object.fromEntries(
@@ -46,13 +52,11 @@ export function WatchlistPage() {
       return
     setAddedNames((previous) => ({ ...previous, [company.code]: company.name }))
     const codes = [...preferences.codes, company.code]
-    ranking.changeCompanies(codes)
     update({ ...preferences, codes })
     setNotice(`已添加 ${company.name}`)
   }
   function remove(code: string) {
     const codes = preferences.codes.filter((item) => item !== code)
-    ranking.changeCompanies(codes)
     update({ ...preferences, codes })
     setAddedNames((previous) => {
       const next = { ...previous }
@@ -177,14 +181,12 @@ export function WatchlistPage() {
                   code={code}
                   name={names[code]}
                   item={quotes.items[code]}
-                  quoteLoading={quotes.loading}
-                  quoteError={quotes.error}
+                  quoteLoading={quotes.items[code].loading}
+                  quoteError={quotes.items[code].error}
                   expectedYield={preferences.expectedYield}
                   revision={revision}
                   onResult={ranking.onResult}
-                  overviewOpen={overviewCode === code}
                   onOpenOverview={() => openOverview(code)}
-                  onCloseOverview={closeOverview}
                 />
               ))}
             </tbody>
@@ -233,10 +235,16 @@ export function WatchlistPage() {
           onClose={() => setAdding(false)}
         />
       )}
-      {overviewCode && !preferences.codes.includes(overviewCode) && (
-        <UnfollowedCompanyOverview
+      {overviewCode && (
+        <CompanyOverviewDialog
           key={overviewCode}
           code={overviewCode}
+          name={names[overviewCode]}
+          followed={preferences.codes.includes(overviewCode)}
+          followLimitReached={preferences.codes.length >= 50}
+          followError={storageError}
+          onFollow={add}
+          onUnfollow={() => remove(overviewCode)}
           expectedYield={preferences.expectedYield}
           onClose={closeOverview}
         />

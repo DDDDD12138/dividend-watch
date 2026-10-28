@@ -1,11 +1,10 @@
 import { LoaderCircle } from 'lucide-react'
 import { useEffect } from 'react'
 import { Button } from '../../components/Button'
-import { CompanyOverview } from '../company/CompanyOverview'
 import { metricsFor, recentYears } from './model'
 import { percent, timeLabel } from '../../lib/format'
 import { Link } from 'react-router'
-import { useDividends } from '../../data/api'
+import { useWatchlistDividends } from './useWatchlistDividends'
 import { dividendStatusFor, issueText } from '../dividends/model'
 import type { StockRowResult } from './order'
 import { isUsableQuote, quoteStatusFor, type WatchlistQuote } from './quotes'
@@ -19,9 +18,7 @@ interface Props {
   expectedYield: string
   revision: number
   onResult: (code: string, result: StockRowResult) => void
-  overviewOpen: boolean
   onOpenOverview: () => void
-  onCloseOverview: () => void
 }
 export function StockRow({
   code,
@@ -32,15 +29,12 @@ export function StockRow({
   expectedYield,
   revision,
   onResult,
-  overviewOpen,
   onOpenOverview,
-  onCloseOverview,
 }: Props) {
-  const history = useDividends(code, revision)
+  const history = useWatchlistDividends(code, revision)
   const data = history.response?.data
   const quote = item?.quote
-  const displayName = quote?.name ?? name ?? data?.company.name
-  const companyName = displayName ?? code
+  const companyName = quote?.name ?? name ?? data?.company.name ?? code
   const metrics = metricsFor(data, quote, expectedYield)
   const referenceYield = metrics?.referenceYield
   const loading = history.loading || quoteLoading
@@ -90,19 +84,6 @@ export function StockRow({
             )}
           </span>
         </span>
-        {overviewOpen && (
-          <CompanyOverview
-            code={code}
-            name={displayName}
-            quote={isUsableQuote(quote) ? quote : null}
-            history={history}
-            expectedYield={expectedYield}
-            quoteLoading={quoteLoading}
-            quoteStatus={quoteStatus}
-            dividendStatus={dividendStatus}
-            onClose={onCloseOverview}
-          />
-        )}
       </th>
       <td className="trend-cell">
         <Link

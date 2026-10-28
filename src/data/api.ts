@@ -1,11 +1,16 @@
 import { useEffect, useState } from 'react'
 import type { ApiResponse, DividendHistory } from '../../shared/api'
-import { createRequestQueue } from './requestQueue'
 
 export interface Resource<T> {
   response?: ApiResponse<T>
   loading: boolean
   error?: string
+}
+export function requestError(error: unknown): string {
+  if (error instanceof Error && error.name === 'TimeoutError')
+    return '请求超时，请重试'
+  if (error instanceof TypeError) return '网络连接失败，请重试'
+  return error instanceof Error ? error.message : '请求失败，请重试'
 }
 export async function request<T>(
   path: string,
@@ -53,14 +58,7 @@ export function useResource<T>(
           setState((previous) => ({
             ...previous,
             loading: false,
-            error:
-              error instanceof Error && error.name === 'TimeoutError'
-                ? '请求超时，请重试'
-                : error instanceof TypeError
-                  ? '网络连接失败，请重试'
-                  : error instanceof Error
-                    ? error.message
-                    : '请求失败，请重试',
+            error: requestError(error),
           }))
       },
     )
@@ -72,13 +70,9 @@ export function useResource<T>(
     error: state.error,
   }
 }
-const dividendQueue = createRequestQueue(4)
-const loadDividends = (path: string, signal: AbortSignal) =>
-  dividendQueue(() => request<DividendHistory>(path, signal), signal)
 export function useDividends(code: string, revision: number) {
   return useResource<DividendHistory>(
     `/api/companies/${code}/dividends`,
     revision,
-    loadDividends,
   )
 }

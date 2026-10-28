@@ -2,13 +2,15 @@ import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { MemoryRouter } from 'react-router'
 import { expect, it, vi } from 'vitest'
-import { useDividends } from '../src/data/api'
+import { useWatchlistDividends } from '../src/features/watchlist/useWatchlistDividends'
 import { StockRow } from '../src/features/watchlist/StockRow'
 import { buildHistory } from '../worker/services/history'
 import { fetchDividends } from '../worker/providers/eastmoney'
 import { bankCompanies, fixtureFetcher, now } from './helpers'
 
-vi.mock('../src/data/api', () => ({ useDividends: vi.fn() }))
+vi.mock('../src/features/watchlist/useWatchlistDividends', () => ({
+  useWatchlistDividends: vi.fn(),
+}))
 
 function renderRow(quoteLoading = false) {
   return renderToStaticMarkup(
@@ -27,9 +29,7 @@ function renderRow(quoteLoading = false) {
             expectedYield: '5.5',
             revision: 1,
             onResult: vi.fn(),
-            overviewOpen: false,
             onOpenOverview: vi.fn(),
-            onCloseOverview: vi.fn(),
             item: {
               failed: false,
               quote: {
@@ -60,7 +60,7 @@ it.each([
       await fetchDividends(fixtureFetcher, bankCompanies[0], now),
       now,
     )
-    vi.mocked(useDividends).mockReturnValue({
+    vi.mocked(useWatchlistDividends).mockReturnValue({
       loading: historyLoading,
       response: {
         data,
@@ -90,7 +90,7 @@ it('shows a concise refresh failure while keeping valuation and fetch time avail
     await fetchDividends(fixtureFetcher, bankCompanies[0], now),
     now,
   )
-  vi.mocked(useDividends).mockReturnValue({
+  vi.mocked(useWatchlistDividends).mockReturnValue({
     loading: false,
     error: '网络连接失败',
     response: {
@@ -113,7 +113,7 @@ it('shows a concise refresh failure while keeping valuation and fetch time avail
 })
 
 it('does not substitute data from another company or year on the first failed request', () => {
-  vi.mocked(useDividends).mockReturnValue({
+  vi.mocked(useWatchlistDividends).mockReturnValue({
     loading: false,
     error: '网络连接失败',
   })
@@ -140,7 +140,7 @@ it.each([
       )!.bonusRatio = '1'
     if (scenario === 'incomplete') input.completeFetch = false
     const data = buildHistory(bankCompanies[0], input, now)
-    vi.mocked(useDividends).mockReturnValue({
+    vi.mocked(useWatchlistDividends).mockReturnValue({
       loading: false,
       response: {
         data,
