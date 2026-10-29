@@ -1,12 +1,13 @@
 import { Hono } from 'hono'
-import type {
-  ApiResponse,
-  AllocationHistory,
-  Company,
-  CompanyProfile,
-  DividendHistory,
-  Issue,
-  QuoteItem,
+import {
+  MAX_WATCHLIST_SIZE,
+  type ApiResponse,
+  type AllocationHistory,
+  type Company,
+  type CompanyProfile,
+  type DividendHistory,
+  type Issue,
+  type QuoteItem,
 } from '../shared/api'
 import { fetchQuotes } from './providers/tencent'
 import { fetchDividends } from './providers/eastmoney'
@@ -74,14 +75,14 @@ export function createApp(
     ]
     if (
       values.length !== 1 ||
-      codes.length > 50 ||
+      codes.length > MAX_WATCHLIST_SIZE ||
       codes.some((code) => !/^\d{6}$/.test(code))
     )
       return c.json(
         {
           error: {
             code: 'INVALID_CODES',
-            message: '请提供最多 50 个六位股票代码',
+            message: `请提供最多 ${MAX_WATCHLIST_SIZE} 个六位股票代码`,
           },
         },
         400,

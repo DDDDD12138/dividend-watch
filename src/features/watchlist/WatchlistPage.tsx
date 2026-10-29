@@ -3,6 +3,7 @@ import { useCallback, useRef, useState } from 'react'
 import { FastScroll } from '../../components/FastScroll'
 import { Button } from '../../components/Button'
 import { RefreshButton } from '../../components/RefreshButton'
+import { MAX_WATCHLIST_SIZE } from '../../../shared/api'
 import { validYield } from './model'
 import { StockRow } from './StockRow'
 import { SortMenu } from './SortMenu'
@@ -62,7 +63,7 @@ export function WatchlistPage() {
   function add(company: Company) {
     if (
       preferences.codes.includes(company.code) ||
-      preferences.codes.length >= 50
+      preferences.codes.length >= MAX_WATCHLIST_SIZE
     )
       return
     setAddedNames((previous) => ({ ...previous, [company.code]: company.name }))
@@ -270,7 +271,7 @@ export function WatchlistPage() {
           code={overviewCode}
           name={names[overviewCode]}
           followed={preferences.codes.includes(overviewCode)}
-          followLimitReached={preferences.codes.length >= 50}
+          followLimitReached={preferences.codes.length >= MAX_WATCHLIST_SIZE}
           followError={storageError}
           onFollow={add}
           onUnfollow={() => remove(overviewCode)}

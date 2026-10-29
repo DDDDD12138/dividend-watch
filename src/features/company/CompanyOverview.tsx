@@ -1,11 +1,12 @@
 import { ArrowRight, Check, Plus } from 'lucide-react'
 import { useLayoutEffect, useRef, useState } from 'react'
 import { Link, useLocation } from 'react-router'
-import type {
-  Company,
-  CompanyProfile,
-  DividendHistory,
-  Quote,
+import {
+  MAX_WATCHLIST_SIZE,
+  type Company,
+  type CompanyProfile,
+  type DividendHistory,
+  type Quote,
 } from '../../../shared/api'
 import { calculateMetrics, calculateTargetPrice } from '../../../shared/money'
 import { Button } from '../../components/Button'
@@ -139,7 +140,9 @@ export function CompanyOverview({
           </p>
         )}
         {!followed && followLimitReached && (
-          <p className="overview-follow-limit">最多关注 50 家公司</p>
+          <p className="overview-follow-limit">
+            最多关注 {MAX_WATCHLIST_SIZE} 家公司
+          </p>
         )}
         <div className="overview-profile" aria-busy={profile.loading}>
           {profile.loading && !data && (

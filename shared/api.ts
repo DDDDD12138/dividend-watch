@@ -115,3 +115,5 @@ export interface AllocationHistory {
     completeFetch: boolean
   }
 }
+/** Follow limit, and the most codes one `/api/quotes` request may carry. */
+export const MAX_WATCHLIST_SIZE = 50

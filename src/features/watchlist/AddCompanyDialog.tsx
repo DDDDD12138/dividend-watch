@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react'
 import { Button } from '../../components/Button'
 import { Modal } from '../../components/Modal'
-import type { Company } from '../../../shared/api'
+import { MAX_WATCHLIST_SIZE, type Company } from '../../../shared/api'
 import { useCompanySearch } from './useWatchlist'
 
 const marketNames = { SH: '沪市', SZ: '深市', BJ: '北交所' }
@@ -24,7 +24,7 @@ export function AddCompanyDialog({
   const [revision, setRevision] = useState(0)
   const [notice, setNotice] = useState('')
   const search = useCompanySearch(query, composing, revision)
-  const full = codes.length >= 50
+  const full = codes.length >= MAX_WATCHLIST_SIZE
   return (
     <Modal
       title="添加关注"
@@ -55,7 +55,9 @@ export function AddCompanyDialog({
         }}
       />
       {full && (
-        <p className="error-text">最多关注 50 家公司，请先移除部分关注。</p>
+        <p className="error-text">
+          最多关注 {MAX_WATCHLIST_SIZE} 家公司，请先移除部分关注。
+        </p>
       )}
       <div className="search-status" role="status">
         {search.loading ? (

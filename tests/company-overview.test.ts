@@ -2,7 +2,11 @@ import { createElement, type ReactNode } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { MemoryRouter } from 'react-router'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import type { DividendHistory, Quote } from '../shared/api'
+import {
+  MAX_WATCHLIST_SIZE,
+  type DividendHistory,
+  type Quote,
+} from '../shared/api'
 import { useResource, type Resource } from '../src/data/api'
 import { CompanyOverview } from '../src/features/company/CompanyOverview'
 
@@ -94,7 +98,7 @@ describe('company overview data boundaries', () => {
       const button = html.match(/<button[^>]*overview-follow[^>]*>/)?.[0]
       expect(button).toContain(`aria-label="${label}"`)
       expect(button?.includes('disabled')).toBe(disabled)
-      expect(html.includes('最多关注 50 家公司')).toBe(
+      expect(html.includes(`最多关注 ${MAX_WATCHLIST_SIZE} 家公司`)).toBe(
         !followed && followLimitReached,
       )
     },

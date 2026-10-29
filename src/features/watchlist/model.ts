@@ -1,4 +1,8 @@
-import type { DividendHistory, Quote } from '../../../shared/api'
+import {
+  MAX_WATCHLIST_SIZE,
+  type DividendHistory,
+  type Quote,
+} from '../../../shared/api'
 import { calculateMetrics, units } from '../../../shared/money'
 import { historyYears } from '../../lib/historyYears'
 import { isUsableQuote } from './quotes'
@@ -32,7 +36,7 @@ export function parsePreferences(text: string): Preferences {
   if (
     p.version !== 1 ||
     !Array.isArray(p.codes) ||
-    p.codes.length > 50 ||
+    p.codes.length > MAX_WATCHLIST_SIZE ||
     !p.codes.every(
       (code) => typeof code === 'string' && /^\d{6}$/.test(code),
     ) ||
