@@ -1,26 +1,42 @@
 .fast-scroll {
   position: fixed;
-  inset-inline: 0;
+  inset: 0;
   z-index: 3;
   overflow: clip;
   pointer-events: none;
 }
+/* The handle only exists where the browser can drive it from the scroll position. */
+@supports not (animation-timeline: scroll()) {
+  .fast-scroll {
+    display: none;
+  }
+}
+/* The small viewport never changes while browser toolbars show and hide, so the
+   handle keeps its place. The hook writes the track's top and travel here. */
+.fast-scroll-track {
+  position: absolute;
+  top: 0;
+  inset-inline: 0;
+  height: 100svh;
+}
 .fast-scroll-handle {
   position: absolute;
+  top: 0;
   right: 0;
   width: 32px;
   height: var(--fast-scroll-thumb-height);
-  opacity: 0;
-  transform: translateX(100%);
-  transition:
-    transform 150ms ease-in,
-    opacity 150ms ease-in;
+  animation: fast-scroll-track linear both;
+  animation-timeline: scroll(root block);
 }
-.fast-scroll[data-visible='true'] .fast-scroll-handle,
-.fast-scroll-handle:focus-within {
-  opacity: 1;
-  transform: translateX(0);
-  transition-timing-function: ease-out;
+@keyframes fast-scroll-track {
+  from {
+    transform: translateY(var(--fast-scroll-track-top));
+  }
+  to {
+    transform: translateY(
+      calc(var(--fast-scroll-track-top) + var(--fast-scroll-travel))
+    );
+  }
 }
 .fast-scroll-thumb {
   position: relative;
@@ -28,6 +44,11 @@
   height: 100%;
   display: grid;
   place-items: center;
+  opacity: 0;
+  transform: translateX(100%);
+  transition:
+    transform 150ms ease-in,
+    opacity 150ms ease-in;
   cursor: grab;
   touch-action: none;
   user-select: none;
@@ -35,6 +56,9 @@
 }
 .fast-scroll[data-visible='true'] .fast-scroll-thumb,
 .fast-scroll-thumb:focus-visible {
+  opacity: 1;
+  transform: translateX(0);
+  transition-timing-function: ease-out;
   pointer-events: auto;
 }
 .fast-scroll-thumb::before {
@@ -61,17 +85,21 @@
   border-color: var(--color-primary);
   background: var(--color-surface-hover);
 }
+/* Lives in the page, not in the fixed root: a toolbar frozen mid-transition
+   exposes a strip that the browser paints page content into but clips fixed
+   boxes out of. */
 .fast-scroll-scrim {
   position: absolute;
   inset: 0;
+  z-index: 2;
+  pointer-events: none;
   background: linear-gradient(
     90deg,
     transparent 8%,
     color-mix(in srgb, var(--color-bg) 85%, transparent) 45%,
     var(--color-bg) 88%
   );
-  opacity: 0;
-  transition: opacity 150ms ease-in;
+  transition: opacity 150ms ease-out;
 }
 .fast-scroll-directory {
   position: absolute;
@@ -81,17 +109,19 @@
   align-items: flex-end;
   width: max-content;
   max-width: calc(100% - 52px);
-  opacity: 0;
-  transform: translateX(6px);
   transition:
-    transform 150ms ease-in,
-    opacity 150ms ease-in;
+    transform 150ms ease-out,
+    opacity 150ms ease-out;
 }
-.fast-scroll[data-dragging='true'] .fast-scroll-directory,
-.fast-scroll[data-dragging='true'] .fast-scroll-scrim {
-  opacity: 1;
-  transform: translateX(0);
-  transition-timing-function: ease-out;
+/* Both mount with a drag and unmount with it, so only the entry transitions. */
+@starting-style {
+  .fast-scroll-scrim,
+  .fast-scroll-directory {
+    opacity: 0;
+  }
+  .fast-scroll-directory {
+    transform: translateX(6px);
+  }
 }
 .fast-scroll-item {
   display: flex;
@@ -127,7 +157,7 @@
   color: inherit;
 }
 @media (prefers-reduced-motion: reduce) {
-  .fast-scroll-handle,
+  .fast-scroll-thumb,
   .fast-scroll-directory,
   .fast-scroll-scrim {
     transition: none;

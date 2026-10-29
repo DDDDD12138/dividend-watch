@@ -1,4 +1,6 @@
 .watchlist-page {
+  /* Anchors the fast-scroll scrim to the whole page. */
+  position: relative;
   max-width: 1328px;
   margin-inline: auto;
   padding: var(--space-10) var(--space-6);

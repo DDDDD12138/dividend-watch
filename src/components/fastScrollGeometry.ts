@@ -1,6 +1,9 @@
 export const FAST_SCROLL_THUMB_HEIGHT = 48
 export const FAST_SCROLL_ROW_HEIGHT = 40
 const EDGE_SPACE = 16
+/** Keep the handle clear of browser chrome and system gesture zones. */
+const TRACK_TOP = { min: 112, ratio: 0.18 }
+const TRACK_BOTTOM = { min: 100, ratio: 0.16 }
 
 export function clamp(value: number, min: number, max: number) {
   return Math.min(max, Math.max(min, value))
@@ -15,8 +18,8 @@ export function rowScrollTop(offset: number, maxScroll: number) {
 }
 
 export function scrollTrack(viewportHeight: number) {
-  const top = Math.max(112, viewportHeight * 0.18)
-  const bottom = Math.max(100, viewportHeight * 0.16)
+  const top = Math.max(TRACK_TOP.min, viewportHeight * TRACK_TOP.ratio)
+  const bottom = Math.max(TRACK_BOTTOM.min, viewportHeight * TRACK_BOTTOM.ratio)
   return {
     top,
     travel: Math.max(

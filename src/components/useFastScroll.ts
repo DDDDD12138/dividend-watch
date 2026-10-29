@@ -6,6 +6,7 @@ import {
   type KeyboardEvent,
   type PointerEvent,
 } from 'react'
+import { flushSync } from 'react-dom'
 import {
   clamp,
   currentItem,
@@ -15,12 +16,15 @@ import {
   scrollTrack,
 } from './fastScrollGeometry'
 
+const HIDE_DELAY = 1200
+/** Mobile toolbars keep resizing the viewport for a few frames after a fling. */
+const SETTLE_DELAY = 150
+
 interface Geometry {
   ids: string[]
   offsets: number[]
   maxScroll: number
   viewportHeight: number
-  viewportTop: number
   trackTop: number
   travel: number
 }
@@ -29,7 +33,6 @@ interface View {
   progress: number
   activeId?: string
   viewportHeight: number
-  viewportTop: number
   trackTop: number
   travel: number
 }
@@ -44,7 +47,6 @@ export function useFastScroll({ ids, getItemElement, disabled }: Props) {
     available: false,
     progress: 0,
     viewportHeight: 0,
-    viewportTop: 0,
     trackTop: 0,
     travel: 0,
   })
@@ -52,12 +54,20 @@ export function useFastScroll({ ids, getItemElement, disabled }: Props) {
   const [dragging, setDragging] = useState(false)
   const geometry = useRef<Geometry | null>(null)
   const enabled = useRef(false)
+  const scrolling = useRef(false)
+  const measurePending = useRef(false)
   const pointer = useRef<{
     id: number
     offset: number
     element: HTMLElement
   } | null>(null)
+  // Sized in svh by CSS, which JS cannot compute. The browser draws the handle
+  // along this track from the scroll position; JS only mirrors its geometry.
+  const track = useRef<HTMLDivElement>(null)
   const hideTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
+  const settleTimer = useRef<ReturnType<typeof setTimeout> | undefined>(
+    undefined,
+  )
   const frame = useRef(0)
   const observer = useRef<ResizeObserver | null>(null)
 
@@ -65,7 +75,7 @@ export function useFastScroll({ ids, getItemElement, disabled }: Props) {
     clearTimeout(hideTimer.current)
     setVisible(true)
     if (!pointer.current)
-      hideTimer.current = setTimeout(() => setVisible(false), 1200)
+      hideTimer.current = setTimeout(() => setVisible(false), HIDE_DELAY)
   }
 
   function releasePointer() {
@@ -76,22 +86,19 @@ export function useFastScroll({ ids, getItemElement, disabled }: Props) {
     setDragging(false)
   }
 
+  // React learns the scroll position only while the directory is open
+  // (dragging), after a measurement, or after a key press.
   function publish() {
     const g = geometry.current
     if (!g) return
-    const progress = scrollProgress(window.scrollY, g.maxScroll)
-    const active = currentItem(
-      g.offsets,
-      window.scrollY + g.viewportTop,
-      g.maxScroll - window.scrollY <= 1,
-    )
+    const scrollY = window.scrollY
+    const active = currentItem(g.offsets, scrollY, g.maxScroll - scrollY <= 1)
     const next: View = {
       available:
         enabled.current && g.maxScroll > 0 && g.travel > 0 && g.ids.length > 0,
-      progress,
+      progress: scrollProgress(scrollY, g.maxScroll),
       activeId: g.ids[active],
       viewportHeight: g.viewportHeight,
-      viewportTop: g.viewportTop,
       trackTop: g.trackTop,
       travel: g.travel,
     }
@@ -106,13 +113,26 @@ export function useFastScroll({ ids, getItemElement, disabled }: Props) {
 
   const measure = useEffectEvent(() => {
     if (!enabled.current) return
+    // Viewport resizes during a fling would re-layout every row each frame.
+    // A drag needs fresh geometry, so only touch-driven scrolling waits.
+    if (scrolling.current && !pointer.current) {
+      measurePending.current = true
+      return
+    }
+    measurePending.current = false
     const elements = ids.flatMap((id) => {
       const element = getItemElement(id)
       return element ? [{ id, element }] : []
     })
-    const viewportHeight = window.visualViewport?.height ?? window.innerHeight
-    const viewportTop = window.visualViewport?.offsetTop ?? 0
-    const track = scrollTrack(viewportHeight)
+    const range = scrollTrack(track.current?.offsetHeight ?? 0)
+    track.current?.style.setProperty(
+      '--fast-scroll-track-top',
+      `${range.top}px`,
+    )
+    track.current?.style.setProperty(
+      '--fast-scroll-travel',
+      `${range.travel}px`,
+    )
     geometry.current = {
       ids: elements.map((item) => item.id),
       offsets: elements.map(
@@ -122,25 +142,41 @@ export function useFastScroll({ ids, getItemElement, disabled }: Props) {
         0,
         document.documentElement.scrollHeight - window.innerHeight,
       ),
-      viewportHeight,
-      viewportTop,
-      trackTop: track.top,
-      travel: track.travel,
+      viewportHeight: window.innerHeight,
+      trackTop: range.top,
+      travel: range.travel,
     }
     publish()
+  })
+  // Brings the state up to date, measuring first if a measurement was deferred.
+  const sync = useEffectEvent(() => {
+    if (measurePending.current) measure()
+    else publish()
+  })
+  const settle = useEffectEvent(() => {
+    scrolling.current = false
+    sync()
   })
   const onScroll = useEffectEvent(() => {
     if (!enabled.current) return
     show()
-    if (!frame.current)
+    scrolling.current = true
+    clearTimeout(settleTimer.current)
+    settleTimer.current = setTimeout(settle, SETTLE_DELAY)
+    // Only the directory needs frames, and it must paint in the same frame as
+    // the handle it follows.
+    if (pointer.current && !frame.current)
       frame.current = requestAnimationFrame(() => {
         frame.current = 0
-        publish()
+        flushSync(publish)
       })
   })
   const suspend = useEffectEvent(() => {
     enabled.current = false
+    scrolling.current = false
+    measurePending.current = false
     clearTimeout(hideTimer.current)
+    clearTimeout(settleTimer.current)
     cancelAnimationFrame(frame.current)
     frame.current = 0
     releasePointer()
@@ -162,20 +198,22 @@ export function useFastScroll({ ids, getItemElement, disabled }: Props) {
     observer.current.observe(document.body)
     window.addEventListener('scroll', onScroll, { passive: true })
     window.addEventListener('resize', resize)
-    window.visualViewport?.addEventListener('resize', resize)
-    window.visualViewport?.addEventListener('scroll', resize)
     media.addEventListener('change', resize)
     resize()
     return () => {
       window.removeEventListener('scroll', onScroll)
       window.removeEventListener('resize', resize)
-      window.visualViewport?.removeEventListener('resize', resize)
-      window.visualViewport?.removeEventListener('scroll', resize)
       media.removeEventListener('change', resize)
       observer.current?.disconnect()
       suspend()
     }
   }, [disabled])
+
+  // A grab during a fling must map onto the settled viewport, and the directory
+  // must open on the row under the viewport now.
+  useLayoutEffect(() => {
+    if (dragging) sync()
+  }, [dragging])
 
   // Reordering must update geometry without interrupting an active gesture.
   useLayoutEffect(() => {
@@ -209,7 +247,7 @@ export function useFastScroll({ ids, getItemElement, disabled }: Props) {
       top: dragScroll(
         event.clientY,
         held.offset,
-        g.viewportTop + g.trackTop,
+        g.trackTop,
         g.travel,
         g.maxScroll,
       ),
@@ -223,12 +261,13 @@ export function useFastScroll({ ids, getItemElement, disabled }: Props) {
   }
   function onKeyDown(event: KeyboardEvent<HTMLElement>) {
     const g = geometry.current
-    if (!g) return
-    const index = g.ids.indexOf(view.activeId ?? '')
+    if (!g || !g.offsets.length) return
+    const scrollY = window.scrollY
     let top: number
     if (event.key === 'Home') top = 0
     else if (event.key === 'End') top = g.maxScroll
     else if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+      const index = currentItem(g.offsets, scrollY, g.maxScroll - scrollY <= 1)
       const next = clamp(
         index + (event.key === 'ArrowDown' ? 1 : -1),
         0,
@@ -238,6 +277,7 @@ export function useFastScroll({ ids, getItemElement, disabled }: Props) {
     } else return
     event.preventDefault()
     window.scrollTo({ top, behavior: 'instant' })
+    publish()
     show()
   }
 
@@ -245,6 +285,7 @@ export function useFastScroll({ ids, getItemElement, disabled }: Props) {
     ...view,
     visible,
     dragging,
+    track,
     onPointerDown,
     onPointerMove,
     onPointerEnd,
