@@ -1,15 +1,16 @@
 import { LoaderCircle } from 'lucide-react'
-import { useEffect } from 'react'
+import { useCallback, useEffect } from 'react'
 import { Button } from '../../components/Button'
 import { metricsFor, recentYears } from './model'
 import { percent, timeLabel } from '../../lib/format'
 import { Link } from 'react-router'
 import { useWatchlistDividends } from './useWatchlistDividends'
 import { dividendStatusFor, issueText } from '../dividends/model'
-import type { StockRowResult } from './order'
+import type { WatchlistRowResult } from './watchlistRowsState'
 import { isUsableQuote, quoteStatusFor, type WatchlistQuote } from './quotes'
 
 interface Props {
+  registerElement?: (code: string, element: HTMLTableRowElement) => () => void
   code: string
   name?: string
   item?: WatchlistQuote
@@ -17,10 +18,11 @@ interface Props {
   quoteError?: string
   expectedYield: string
   revision: number
-  onResult: (code: string, result: StockRowResult) => void
+  onResult: (code: string, result: WatchlistRowResult) => void
   onOpenOverview: () => void
 }
 export function StockRow({
+  registerElement,
   code,
   name,
   item,
@@ -31,6 +33,12 @@ export function StockRow({
   onResult,
   onOpenOverview,
 }: Props) {
+  const ref = useCallback(
+    (element: HTMLTableRowElement | null) => {
+      if (element) return registerElement?.(code, element)
+    },
+    [code, registerElement],
+  )
   const history = useWatchlistDividends(code, revision)
   const data = history.response?.data
   const quote = item?.quote
@@ -39,8 +47,13 @@ export function StockRow({
   const referenceYield = metrics?.referenceYield
   const loading = history.loading || quoteLoading
   useEffect(() => {
-    onResult(code, { revision, loading, yield: referenceYield })
-  }, [code, revision, loading, referenceYield, onResult])
+    onResult(code, {
+      name: companyName,
+      revision,
+      loading,
+      yield: referenceYield,
+    })
+  }, [code, companyName, revision, loading, referenceYield, onResult])
   const years = data ? recentYears(data) : []
   const max = Math.max(...years.map((year) => Number(year.amount ?? 0)), 0)
   const reference = data?.referenceDividend
@@ -58,7 +71,7 @@ export function StockRow({
     .filter(Boolean)
     .join('；')
   return (
-    <tr aria-busy={loading}>
+    <tr ref={ref} aria-busy={loading}>
       <th scope="row" className="company-cell">
         <strong>
           <Button

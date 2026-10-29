@@ -1,5 +1,6 @@
 import { Plus } from 'lucide-react'
-import { useState } from 'react'
+import { useCallback, useRef, useState } from 'react'
+import { FastScroll } from '../../components/FastScroll'
 import { Button } from '../../components/Button'
 import { RefreshButton } from '../../components/RefreshButton'
 import { validYield } from './model'
@@ -8,11 +9,11 @@ import { SortMenu } from './SortMenu'
 import { usePreferences } from './useWatchlist'
 import { useQuotes } from './useQuotes'
 import { useWatchlistPosition } from './useWatchlistPosition'
-import { useWatchlistOrder } from './useWatchlistOrder'
+import { useWatchlistRows } from './useWatchlistRows'
 import { useVisibleCompanies } from './useVisibleCompanies'
 import { AddCompanyDialog } from './AddCompanyDialog'
 import type { Company } from '../../../shared/api'
-import { timeLabel } from '../../lib/format'
+import { percent, timeLabel } from '../../lib/format'
 import { CompanyOverviewDialog } from '../company/CompanyOverviewDialog'
 import { useCompanyOverviewNavigation } from '../company/useCompanyOverviewNavigation'
 import './watchlist.css'
@@ -27,15 +28,29 @@ export function WatchlistPage() {
     overviewCode !== null,
   )
   const [revision, setRevision] = useState(0)
-  const ranking = useWatchlistOrder(visibleCodes, revision)
+  const rows = useWatchlistRows(visibleCodes, revision)
+  const rowElements = useRef(new Map<string, HTMLTableRowElement>())
+  const registerElement = useCallback(
+    (code: string, element: HTMLTableRowElement) => {
+      rowElements.current.set(code, element)
+      return () => {
+        rowElements.current.delete(code)
+      }
+    },
+    [],
+  )
+  const getItemElement = useCallback(
+    (code: string) => rowElements.current.get(code) ?? null,
+    [],
+  )
   const quotes = useQuotes(visibleCodes, revision)
   const [yieldInput, setYieldInput] = useState(preferences.expectedYield)
   const [addedNames, setAddedNames] = useState<Record<string, string>>({})
   const [adding, setAdding] = useState(false)
   const [notice, setNotice] = useState('')
-  const refreshing = quotes.loading || ranking.loading
+  const refreshing = quotes.loading || rows.loading
   const invalidYield = !validYield(yieldInput)
-  const codes = preferences.sort === 'yield' ? ranking.order : visibleCodes
+  const codes = preferences.sort === 'yield' ? rows.order : visibleCodes
   const names = {
     ...addedNames,
     ...Object.fromEntries(
@@ -88,9 +103,9 @@ export function WatchlistPage() {
           {storageError}
         </p>
       )}
-      {ranking.error && (
+      {rows.error && (
         <p className="error-text" role="status">
-          {ranking.error}
+          {rows.error}
         </p>
       )}
       <section className="watchlist-surface" aria-label="自选公司">
@@ -178,6 +193,7 @@ export function WatchlistPage() {
               {codes.map((code) => (
                 <StockRow
                   key={code}
+                  registerElement={registerElement}
                   code={code}
                   name={names[code]}
                   item={quotes.items[code]}
@@ -185,7 +201,7 @@ export function WatchlistPage() {
                   quoteError={quotes.items[code].error}
                   expectedYield={preferences.expectedYield}
                   revision={revision}
-                  onResult={ranking.onResult}
+                  onResult={rows.onResult}
                   onOpenOverview={() => openOverview(code)}
                 />
               ))}
@@ -207,6 +223,19 @@ export function WatchlistPage() {
           股息率与目标价格按上一财年税前每股已实施分红计算；数据不可用时不计算，不使用更早年份替代。
         </p>
       </section>
+      <FastScroll
+        label="快速定位公司"
+        items={codes.map((code) => ({
+          id: code,
+          label: rows.results[code]?.name ?? names[code] ?? code,
+          value:
+            rows.results[code]?.yield !== undefined
+              ? percent(rows.results[code].yield)
+              : '—',
+        }))}
+        getItemElement={getItemElement}
+        disabled={adding || overviewCode !== null}
+      />
       <footer className="page-footer">
         <details className="data-info">
           <summary>数据说明</summary>

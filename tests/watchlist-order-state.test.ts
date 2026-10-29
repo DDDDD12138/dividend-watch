@@ -1,15 +1,16 @@
 import { describe, expect, it } from 'vitest'
 import {
-  watchlistOrderReducer as reduce,
-  type WatchlistOrderState,
-} from '../src/features/watchlist/watchlistOrderState'
+  watchlistRowsReducer as reduce,
+  type WatchlistRowsState,
+} from '../src/features/watchlist/watchlistRowsState'
 
 const result = (value: string, revision = 0) => ({
+  name: '测试公司',
   revision,
   loading: false,
   yield: value,
 })
-function initial(): WatchlistOrderState {
+function initial(): WatchlistRowsState {
   return {
     codes: ['600001', '600002'],
     order: ['600001', '600002'],
@@ -65,13 +66,14 @@ describe('ranking updates use current list membership', () => {
     expect(completed.loading).toBe(false)
   })
 
-  it('discards results from previous refreshes', () => {
+  it('keeps visible row values but rejects late results from previous refreshes', () => {
     const refreshed = reduce(initial(), {
       type: 'sync',
       codes: ['600001', '600002'],
       revision: 1,
     })
-    expect(refreshed.results).toEqual({})
+    expect(refreshed.results).toEqual(initial().results)
+    expect(refreshed.order).toEqual(initial().order)
     expect(refreshed.loading).toBe(true)
     expect(
       reduce(refreshed, {

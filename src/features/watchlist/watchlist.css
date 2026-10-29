@@ -388,6 +388,13 @@
   }
 }
 @media (max-width: 760px) {
+  /* Page layout must not depend on whether the floating handle is available. */
+  html:has(.watchlist-page) {
+    scrollbar-width: none;
+  }
+  html:has(.watchlist-page)::-webkit-scrollbar {
+    display: none;
+  }
   .watchlist-page {
     padding: var(--space-6) var(--space-4);
   }

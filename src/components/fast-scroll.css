@@ -1,0 +1,135 @@
+.fast-scroll {
+  position: fixed;
+  inset-inline: 0;
+  z-index: 3;
+  overflow: clip;
+  pointer-events: none;
+}
+.fast-scroll-handle {
+  position: absolute;
+  right: 0;
+  width: 32px;
+  height: var(--fast-scroll-thumb-height);
+  opacity: 0;
+  transform: translateX(100%);
+  transition:
+    transform 150ms ease-in,
+    opacity 150ms ease-in;
+}
+.fast-scroll[data-visible='true'] .fast-scroll-handle,
+.fast-scroll-handle:focus-within {
+  opacity: 1;
+  transform: translateX(0);
+  transition-timing-function: ease-out;
+}
+.fast-scroll-thumb {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  display: grid;
+  place-items: center;
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+.fast-scroll[data-visible='true'] .fast-scroll-thumb,
+.fast-scroll-thumb:focus-visible {
+  pointer-events: auto;
+}
+.fast-scroll-thumb::before {
+  content: '';
+  position: absolute;
+  inset: 0 0 0 8px;
+  z-index: -1;
+  border: 1px solid var(--color-border);
+  border-right: 0;
+  border-radius: 12px 0 0 12px;
+  background: var(--color-surface);
+  box-shadow: 0 2px 8px rgb(36 59 57 / 8%);
+}
+.fast-scroll-thumb svg {
+  width: 16px;
+  height: 16px;
+  translate: 4px 0;
+  color: var(--color-primary);
+}
+.fast-scroll[data-dragging='true'] .fast-scroll-thumb {
+  cursor: grabbing;
+}
+.fast-scroll[data-dragging='true'] .fast-scroll-thumb::before {
+  border-color: var(--color-primary);
+  background: var(--color-surface-hover);
+}
+.fast-scroll-scrim {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    90deg,
+    transparent 8%,
+    color-mix(in srgb, var(--color-bg) 85%, transparent) 45%,
+    var(--color-bg) 88%
+  );
+  opacity: 0;
+  transition: opacity 150ms ease-in;
+}
+.fast-scroll-directory {
+  position: absolute;
+  right: 36px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  width: max-content;
+  max-width: calc(100% - 52px);
+  opacity: 0;
+  transform: translateX(6px);
+  transition:
+    transform 150ms ease-in,
+    opacity 150ms ease-in;
+}
+.fast-scroll[data-dragging='true'] .fast-scroll-directory,
+.fast-scroll[data-dragging='true'] .fast-scroll-scrim {
+  opacity: 1;
+  transform: translateX(0);
+  transition-timing-function: ease-out;
+}
+.fast-scroll-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  height: var(--fast-scroll-row-height);
+  flex-shrink: 0;
+  max-width: 100%;
+  padding-inline: var(--space-4);
+  color: var(--color-text-muted);
+  font-size: var(--font-size-base);
+  white-space: nowrap;
+}
+.fast-scroll-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.fast-scroll-value {
+  flex: none;
+  color: var(--color-primary);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  font-variant-numeric: tabular-nums;
+}
+.fast-scroll-item[data-current='true'] {
+  border-radius: var(--radius-full);
+  background: var(--color-text);
+  color: var(--color-surface);
+  font-weight: var(--font-weight-semibold);
+  box-shadow: var(--shadow-popover);
+}
+.fast-scroll-item[data-current='true'] .fast-scroll-value {
+  color: inherit;
+}
+@media (prefers-reduced-motion: reduce) {
+  .fast-scroll-handle,
+  .fast-scroll-directory,
+  .fast-scroll-scrim {
+    transition: none;
+  }
+}

@@ -1,13 +1,16 @@
 import { useCallback, useEffect, useReducer } from 'react'
-import type { StockRowResult } from './order'
+import type {
+  WatchlistRowResult,
+  WatchlistRowsState,
+} from './watchlistRowsState'
 import { readYieldOrder, writeYieldOrder } from './orderStorage'
-import { watchlistOrderReducer } from './watchlistOrderState'
+import { watchlistRowsReducer } from './watchlistRowsState'
 
-export function useWatchlistOrder(codes: string[], revision: number) {
+export function useWatchlistRows(codes: string[], revision: number) {
   const [state, dispatch] = useReducer(
-    watchlistOrderReducer,
+    watchlistRowsReducer,
     { codes, revision },
-    ({ codes, revision }) => ({
+    ({ codes, revision }): WatchlistRowsState => ({
       ...readYieldOrder(codes),
       codes,
       revision,
@@ -18,11 +21,11 @@ export function useWatchlistOrder(codes: string[], revision: number) {
   let current = state
   if (state.codes !== codes || state.revision !== revision) {
     const action = { type: 'sync', codes, revision } as const
-    current = watchlistOrderReducer(state, action)
+    current = watchlistRowsReducer(state, action)
     dispatch(action)
   }
 
-  const onResult = useCallback((code: string, result: StockRowResult) => {
+  const onResult = useCallback((code: string, result: WatchlistRowResult) => {
     dispatch({ type: 'result', code, result })
   }, [])
 
@@ -33,6 +36,7 @@ export function useWatchlistOrder(codes: string[], revision: number) {
   }, [current.order, current.loading])
 
   return {
+    results: current.results,
     order: current.order,
     loading: current.loading,
     error: current.error,
