@@ -1,13 +1,7 @@
-import {
-  useCallback,
-  useId,
-  useMemo,
-  useState,
-  type KeyboardEvent,
-  type ReactNode,
-} from 'react'
+import { useCallback, useId, useMemo, useState, type ReactNode } from 'react'
 import { ChartTooltip } from './ChartTooltip'
-import { useChartSelection, useChartSize } from './chartHooks'
+import { useChartSize } from './chartHooks'
+import { useChartInteraction } from './useChartInteraction'
 import { layoutAmountLabels } from './amountLabels'
 import { PreListingBand } from './PreListingBand'
 import { isPreListing } from './listing'
@@ -52,12 +46,8 @@ function AllocationPlot({
   canvasHeight: number
   measure: ReturnType<typeof useChartSize>['measure']
 }) {
-  const { root, active, select, hide } = useChartSelection(
-    width,
-    canvasHeight,
-    points,
-    ['profit', 'cash'],
-  )
+  const { root, active, dismiss, interactionProps, getTargetProps } =
+    useChartInteraction(width, canvasHeight, points, ['profit', 'cash'])
   const clipPrefix = useId()
   const axis = useMemo(() => allocationAxis(points), [points])
   const texts = useMemo(
@@ -158,38 +148,19 @@ function AllocationPlot({
     index: number,
     layer: AllocationLayer,
   ) {
-    return {
-      role: point.record ? 'button' : undefined,
-      tabIndex: point.record ? 0 : undefined,
-      'aria-label': text(point, index).replaceAll('\n', '，'),
-      'data-chart-target': layer,
-      'data-tooltip': text(point, index),
-      onClick: point.record ? () => onSelect(point) : undefined,
-      onKeyDown: (event: KeyboardEvent<SVGGElement>) => {
-        if (point.record && (event.key === 'Enter' || event.key === ' ')) {
-          event.preventDefault()
-          hide()
-          onSelect(point)
-        }
-      },
-    }
+    return getTargetProps({
+      mode: layer,
+      text: text(point, index),
+      onActivate: point.record ? () => onSelect(point) : undefined,
+    })
   }
+
   return (
     <div
       className="chart-interaction allocation-interaction"
       ref={root}
       data-mode={active?.mode ?? emphasis ?? undefined}
-      onPointerOver={(event) => {
-        if (event.pointerType !== 'touch') select(event.target)
-      }}
-      onPointerOut={(event) => select(event.relatedTarget)}
-      onPointerLeave={hide}
-      onFocus={(event) => select(event.target)}
-      onBlur={hide}
-      onClick={hide}
-      onKeyDown={(event) => {
-        if (event.key === 'Escape') hide()
-      }}
+      {...interactionProps}
     >
       <div className="annual-chart" ref={measure}>
         {points.length === 0 ? (
@@ -482,7 +453,7 @@ function AllocationPlot({
             })}
         </svg>
       </div>
-      {active && <ChartTooltip selection={active} onDismiss={hide} />}
+      {active && <ChartTooltip selection={active} onDismiss={dismiss} />}
     </div>
   )
 }

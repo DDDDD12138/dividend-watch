@@ -147,6 +147,12 @@
   width: 100%;
   height: 100%;
 }
+.chart-interaction svg {
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-touch-callout: none;
+}
 .chart-axis text,
 .chart-axis-measure {
   font-size: var(--font-size-chart-axis);
@@ -216,12 +222,10 @@
 .chart-interaction[data-mode='record'] .chart-year-visual {
   opacity: 0.1;
 }
-.chart-year-target:focus-visible,
-.chart-record-target:focus-visible {
+.chart-interaction [data-chart-target]:focus {
   outline: none;
 }
-.chart-year-target:focus-visible .chart-hit,
-.chart-record-target:focus-visible .chart-hit {
+.chart-interaction [data-chart-target]:focus-visible .chart-hit {
   stroke: var(--color-focus);
   stroke-width: 2;
 }
@@ -580,13 +584,6 @@
 }
 .allocation-target[role='button'] {
   cursor: pointer;
-}
-.allocation-target:focus-visible {
-  outline: none;
-}
-.allocation-target:focus-visible .chart-hit {
-  stroke: var(--color-focus);
-  stroke-width: 2;
 }
 .allocation-ratios {
   border-top: 1px solid var(--color-border);

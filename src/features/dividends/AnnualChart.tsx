@@ -9,7 +9,8 @@ import {
   type ChartLayer,
 } from './model'
 import { ChartTooltip } from './ChartTooltip'
-import { useChartSize, useChartSelection } from './chartHooks'
+import { useChartSize } from './chartHooks'
+import { useChartInteraction } from './useChartInteraction'
 import { layoutAmountLabels } from './amountLabels'
 import { dividendAxis } from './axis'
 import { PreListingBand } from './PreListingBand'
@@ -49,12 +50,8 @@ function ChartPlot({
   width,
   canvasHeight,
 }: ChartProps & { width: number; canvasHeight: number }) {
-  const { root, active, select, hide } = useChartSelection(
-    width,
-    canvasHeight,
-    groups,
-    ['year', 'record'],
-  )
+  const { root, active, dismiss, interactionProps, getTargetProps } =
+    useChartInteraction(width, canvasHeight, groups, ['year', 'record'])
   const [left, setLeft] = useState(0)
   const bottom = canvasHeight - 52,
     plotTop = 24,
@@ -148,17 +145,7 @@ function ChartPlot({
       className="chart-interaction"
       ref={root}
       data-mode={active?.mode ?? emphasis ?? undefined}
-      onPointerOver={(event) => {
-        if (event.pointerType !== 'touch') select(event.target)
-      }}
-      onPointerOut={(event) => select(event.relatedTarget)}
-      onPointerLeave={hide}
-      onFocus={(event) => select(event.target)}
-      onBlur={hide}
-      onClick={hide}
-      onKeyDown={(event) => {
-        if (event.key === 'Escape') hide()
-      }}
+      {...interactionProps}
     >
       <svg
         ref={measureLabels}
@@ -225,30 +212,15 @@ function ChartPlot({
             <g key={group.year}>
               <g
                 className={showData ? 'chart-year-target' : undefined}
-                role={
-                  showData
-                    ? group.records.length
-                      ? 'button'
-                      : 'img'
-                    : undefined
-                }
-                tabIndex={group.records.length ? 0 : undefined}
-                aria-label={showData ? text.replaceAll('\n', '，') : undefined}
-                data-chart-target={showData ? 'year' : undefined}
-                data-tooltip={showData ? text : undefined}
-                onClick={
-                  group.records.length ? () => onYear(group.year) : undefined
-                }
-                onKeyDown={(event) => {
-                  if (
-                    group.records.length &&
-                    (event.key === 'Enter' || event.key === ' ')
-                  ) {
-                    event.preventDefault()
-                    hide()
-                    onYear(group.year)
-                  }
-                }}
+                {...(showData
+                  ? getTargetProps({
+                      mode: 'year',
+                      text,
+                      onActivate: group.records.length
+                        ? () => onYear(group.year)
+                        : undefined,
+                    })
+                  : {})}
               >
                 {amount != null && (
                   <rect
@@ -331,19 +303,11 @@ function ChartPlot({
                   <g
                     key={record.recordId}
                     className="chart-record-target"
-                    role="button"
-                    tabIndex={0}
-                    aria-label={tip.replaceAll('\n', '，')}
-                    data-chart-target="record"
-                    data-tooltip={tip}
-                    onClick={() => onRecord(record)}
-                    onKeyDown={(event) => {
-                      if (event.key === 'Enter' || event.key === ' ') {
-                        event.preventDefault()
-                        hide()
-                        onRecord(record)
-                      }
-                    }}
+                    {...getTargetProps({
+                      mode: 'record',
+                      text: tip,
+                      onActivate: () => onRecord(record),
+                    })}
                   >
                     <rect
                       className="chart-record"
@@ -367,7 +331,7 @@ function ChartPlot({
           )
         })}
       </svg>
-      {active && <ChartTooltip selection={active} onDismiss={hide} />}
+      {active && <ChartTooltip selection={active} onDismiss={dismiss} />}
     </div>
   )
 }
