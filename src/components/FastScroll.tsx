@@ -2,7 +2,6 @@ import { ChevronsUpDown } from 'lucide-react'
 import { useMemo, type CSSProperties } from 'react'
 import { useFastScroll } from './useFastScroll'
 import {
-  directoryWindow,
   FAST_SCROLL_ROW_HEIGHT,
   FAST_SCROLL_THUMB_HEIGHT,
 } from './fastScrollGeometry'
@@ -34,49 +33,52 @@ export function FastScroll({
   // Only membership/order changes should reconnect geometry observers.
   const idsKey = JSON.stringify(items.map((item) => item.id))
   const ids = useMemo<string[]>(() => JSON.parse(idsKey), [idsKey])
+  const directoryRows = useMemo(
+    () =>
+      items.map((item) => (
+        <div key={item.id} className="fast-scroll-item">
+          <span className="fast-scroll-name">{item.label}</span>
+          <span className="fast-scroll-value">{item.value}</span>
+        </div>
+      )),
+    [items],
+  )
   const { track, ...scroll } = useFastScroll({ ids, getItemElement, disabled })
   // `available` also drops once the hook suspends for `disabled`, but only after
   // its effect runs; this keeps the handle out of the render before that.
   const ready = scroll.available && !disabled
-  const active = items.findIndex((item) => item.id === scroll.activeId)
-  const current = items[active]
-  // The browser moves the handle; the directory exists only while dragging.
-  const directory =
-    ready && scroll.dragging && active >= 0
-      ? directoryWindow(
-          items.length,
-          active,
-          scroll.trackTop +
-            scroll.progress * scroll.travel +
-            FAST_SCROLL_THUMB_HEIGHT / 2,
-          scroll.viewportHeight,
-        )
-      : null
+  const current = items.find((item) => item.id === scroll.activeId)
   return (
     <>
-      {directory && <div className="fast-scroll-scrim" aria-hidden="true" />}
+      {ready && (
+        <div
+          className="fast-scroll-scrim"
+          data-dragging={scroll.dragging}
+          aria-hidden="true"
+        />
+      )}
       <div
         className="fast-scroll"
         data-visible={scroll.visible}
-        data-dragging={scroll.dragging}
+        data-dragging={ready && scroll.dragging}
         style={rootStyle}
       >
-        {directory && (
-          <div
-            className="fast-scroll-directory"
-            aria-hidden="true"
-            style={{ top: directory.top }}
-          >
-            {items.slice(directory.start, directory.end).map((item) => (
-              <div
-                key={item.id}
-                className="fast-scroll-item"
-                data-current={item.id === scroll.activeId}
-              >
-                <span className="fast-scroll-name">{item.label}</span>
-                <span className="fast-scroll-value">{item.value}</span>
-              </div>
-            ))}
+        {ready && (
+          <div className="fast-scroll-directory" aria-hidden="true">
+            <div
+              className="fast-scroll-window"
+              hidden={scroll.windowHeight === 0}
+              style={{
+                transform: `translate3d(0, ${scroll.windowTop}px, 0)`,
+                height: scroll.windowHeight,
+              }}
+            />
+            <div
+              className="fast-scroll-list"
+              style={{ transform: `translate3d(0, ${scroll.listOffset}px, 0)` }}
+            >
+              {directoryRows}
+            </div>
           </div>
         )}
         {/* Always mounted: its svh height is the one value JS cannot compute. */}

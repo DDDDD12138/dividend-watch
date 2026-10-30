@@ -85,53 +85,87 @@
   border-color: var(--color-primary);
   background: var(--color-surface-hover);
 }
-/* Lives in the page, not in the fixed root: a toolbar frozen mid-transition
-   exposes a strip that the browser paints page content into but clips fixed
-   boxes out of. */
+/* Page-anchored so mobile browser toolbar transitions cannot clip the scrim
+   along with fixed controls and expose an uncovered strip of content. */
 .fast-scroll-scrim {
-  position: absolute;
-  inset: 0;
   z-index: 2;
   pointer-events: none;
-  background: linear-gradient(
-    90deg,
-    transparent 8%,
-    color-mix(in srgb, var(--color-bg) 85%, transparent) 45%,
-    var(--color-bg) 88%
-  );
-  transition: opacity 150ms ease-out;
+  position: absolute;
+  inset: 0 0 0 auto;
+  width: min(300px, 82vw);
+  background: color-mix(in srgb, var(--color-bg) 92%, transparent);
+  backdrop-filter: blur(8px);
+  mask-image: linear-gradient(to right, transparent, #000 35%);
 }
 .fast-scroll-directory {
   position: absolute;
-  right: 36px;
+  inset: 0 36px 0 auto;
+  width: max-content;
+  max-width: min(240px, calc(100% - 52px));
+  overflow: hidden;
+  mask-image: linear-gradient(
+    to bottom,
+    transparent,
+    #000 24px,
+    #000 calc(100% - 24px),
+    transparent
+  );
+  transform: translateX(6px);
+}
+.fast-scroll-scrim,
+.fast-scroll-directory {
+  opacity: 0;
+  visibility: hidden;
+  transition:
+    transform 150ms ease-in,
+    opacity 150ms ease-in,
+    visibility 0s 150ms;
+}
+.fast-scroll-scrim[data-dragging='true'],
+.fast-scroll[data-dragging='true'] .fast-scroll-directory {
+  opacity: 1;
+  visibility: visible;
+  transition-delay: 0s;
+  transition-timing-function: ease-out;
+}
+.fast-scroll[data-dragging='true'] .fast-scroll-directory {
+  transform: translateX(0);
+}
+.fast-scroll-list {
+  position: relative;
   display: flex;
   flex-direction: column;
-  align-items: flex-end;
-  width: max-content;
-  max-width: calc(100% - 52px);
-  transition:
-    transform 150ms ease-out,
-    opacity 150ms ease-out;
+  align-items: stretch;
 }
-/* Both mount with a drag and unmount with it, so only the entry transitions. */
-@starting-style {
-  .fast-scroll-scrim,
-  .fast-scroll-directory {
-    opacity: 0;
-  }
-  .fast-scroll-directory {
-    transform: translateX(6px);
-  }
+.fast-scroll-window {
+  position: absolute;
+  inset: 0 0 auto;
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--color-primary) 7%, transparent);
+}
+.fast-scroll[data-dragging='true'] .fast-scroll-list,
+.fast-scroll[data-dragging='true'] .fast-scroll-window {
+  will-change: transform;
+}
+.fast-scroll-window::after {
+  content: '';
+  position: absolute;
+  right: 0;
+  top: 50%;
+  width: 2px;
+  height: 24px;
+  border-radius: 2px;
+  background: var(--color-primary);
+  transform: translateY(-50%);
 }
 .fast-scroll-item {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) max-content;
   align-items: center;
-  gap: var(--space-3);
+  gap: 20px;
   height: var(--fast-scroll-row-height);
-  flex-shrink: 0;
-  max-width: 100%;
-  padding-inline: var(--space-4);
-  color: var(--color-text-muted);
+  padding-inline: 14px;
+  color: var(--color-text);
   font-size: var(--font-size-base);
   white-space: nowrap;
 }
@@ -140,21 +174,11 @@
   text-overflow: ellipsis;
 }
 .fast-scroll-value {
-  flex: none;
+  text-align: right;
   color: var(--color-primary);
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-semibold);
   font-variant-numeric: tabular-nums;
-}
-.fast-scroll-item[data-current='true'] {
-  border-radius: var(--radius-full);
-  background: var(--color-text);
-  color: var(--color-surface);
-  font-weight: var(--font-weight-semibold);
-  box-shadow: var(--shadow-popover);
-}
-.fast-scroll-item[data-current='true'] .fast-scroll-value {
-  color: inherit;
 }
 @media (prefers-reduced-motion: reduce) {
   .fast-scroll-thumb,

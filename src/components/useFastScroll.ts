@@ -10,6 +10,8 @@ import { flushSync } from 'react-dom'
 import {
   clamp,
   currentItem,
+  directoryLayout,
+  FAST_SCROLL_THUMB_HEIGHT,
   dragScroll,
   rowScrollTop,
   scrollProgress,
@@ -23,6 +25,7 @@ const SETTLE_DELAY = 150
 interface Geometry {
   ids: string[]
   offsets: number[]
+  bottom: number
   maxScroll: number
   viewportHeight: number
   trackTop: number
@@ -32,9 +35,9 @@ interface View {
   available: boolean
   progress: number
   activeId?: string
-  viewportHeight: number
-  trackTop: number
-  travel: number
+  listOffset: number
+  windowTop: number
+  windowHeight: number
 }
 interface Props {
   ids: string[]
@@ -46,9 +49,9 @@ export function useFastScroll({ ids, getItemElement, disabled }: Props) {
   const [view, setView] = useState<View>({
     available: false,
     progress: 0,
-    viewportHeight: 0,
-    trackTop: 0,
-    travel: 0,
+    listOffset: 0,
+    windowTop: 0,
+    windowHeight: 0,
   })
   const [visible, setVisible] = useState(false)
   const [dragging, setDragging] = useState(false)
@@ -93,22 +96,39 @@ export function useFastScroll({ ids, getItemElement, disabled }: Props) {
     if (!g) return
     const scrollY = window.scrollY
     const active = currentItem(g.offsets, scrollY, g.maxScroll - scrollY <= 1)
-    const next: View = {
-      available:
-        enabled.current && g.maxScroll > 0 && g.travel > 0 && g.ids.length > 0,
-      progress: scrollProgress(scrollY, g.maxScroll),
-      activeId: g.ids[active],
-      viewportHeight: g.viewportHeight,
-      trackTop: g.trackTop,
-      travel: g.travel,
-    }
-    setView((previous) =>
-      Object.keys(next).every(
+    const progress = scrollProgress(scrollY, g.maxScroll)
+    const available =
+      enabled.current &&
+      g.maxScroll > 0 &&
+      g.travel > 0 &&
+      g.ids.length > 0 &&
+      g.ids.length === ids.length
+    // Keep the directory still during its exit; ordinary scrolling only moves
+    // the browser-driven handle, never the hidden directory.
+    const layout = pointer.current
+      ? directoryLayout(
+          g.offsets,
+          g.bottom,
+          scrollY,
+          g.viewportHeight,
+          g.trackTop + progress * g.travel + FAST_SCROLL_THUMB_HEIGHT / 2,
+        )
+      : null
+    setView((previous) => {
+      const next: View = {
+        available,
+        progress,
+        activeId: g.ids[active],
+        listOffset: layout?.listOffset ?? previous.listOffset,
+        windowTop: layout?.windowTop ?? previous.windowTop,
+        windowHeight: layout?.windowHeight ?? previous.windowHeight,
+      }
+      return Object.keys(next).every(
         (key) => previous[key as keyof View] === next[key as keyof View],
       )
         ? previous
-        : next,
-    )
+        : next
+    })
   }
 
   const measure = useEffectEvent(() => {
@@ -122,7 +142,7 @@ export function useFastScroll({ ids, getItemElement, disabled }: Props) {
     measurePending.current = false
     const elements = ids.flatMap((id) => {
       const element = getItemElement(id)
-      return element ? [{ id, element }] : []
+      return element ? [{ id, rect: element.getBoundingClientRect() }] : []
     })
     const range = scrollTrack(track.current?.offsetHeight ?? 0)
     track.current?.style.setProperty(
@@ -135,9 +155,8 @@ export function useFastScroll({ ids, getItemElement, disabled }: Props) {
     )
     geometry.current = {
       ids: elements.map((item) => item.id),
-      offsets: elements.map(
-        ({ element }) => element.getBoundingClientRect().top + window.scrollY,
-      ),
+      offsets: elements.map(({ rect }) => rect.top + window.scrollY),
+      bottom: (elements.at(-1)?.rect.bottom ?? 0) + window.scrollY,
       maxScroll: Math.max(
         0,
         document.documentElement.scrollHeight - window.innerHeight,

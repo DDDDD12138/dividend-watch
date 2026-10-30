@@ -53,28 +53,41 @@ export function currentItem(
   return index === -1 ? offsets.length - 1 : index
 }
 
-export function directoryWindow(
-  count: number,
-  active: number,
-  center: number,
-  viewportHeight: number,
+/** Map document pixels to fractional directory rows, not discrete companies. */
+export function directoryPosition(
+  offsets: number[],
+  bottom: number,
+  pageY: number,
 ) {
-  const half = FAST_SCROLL_ROW_HEIGHT / 2
-  const above = Math.max(
-    0,
-    Math.floor((center - EDGE_SPACE - half) / FAST_SCROLL_ROW_HEIGHT),
+  if (!offsets.length || pageY <= offsets[0]) return 0
+  if (pageY >= bottom) return offsets.length * FAST_SCROLL_ROW_HEIGHT
+  const next = offsets.findIndex((offset) => offset > pageY)
+  const index = next === -1 ? offsets.length - 1 : next - 1
+  const end = offsets[index + 1] ?? bottom
+  return (
+    (index + (pageY - offsets[index]) / (end - offsets[index])) *
+    FAST_SCROLL_ROW_HEIGHT
   )
-  const below = Math.max(
-    0,
-    Math.floor(
-      (viewportHeight - EDGE_SPACE - center - half) / FAST_SCROLL_ROW_HEIGHT,
-    ),
+}
+
+export function directoryLayout(
+  offsets: number[],
+  bottom: number,
+  scrollY: number,
+  viewportHeight: number,
+  thumbCenter: number,
+) {
+  const first = directoryPosition(offsets, bottom, scrollY)
+  const last = directoryPosition(offsets, bottom, scrollY + viewportHeight)
+  const windowHeight = last - first
+  const center = clamp(
+    thumbCenter,
+    windowHeight / 2,
+    viewportHeight - windowHeight / 2,
   )
-  const start = Math.max(0, active - above)
-  const end = Math.min(count, active + below + 1)
   return {
-    start,
-    end,
-    top: center - (active - start) * FAST_SCROLL_ROW_HEIGHT - half,
+    listOffset: center - (first + last) / 2,
+    windowTop: center - windowHeight / 2,
+    windowHeight,
   }
 }
