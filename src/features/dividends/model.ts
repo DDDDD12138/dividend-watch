@@ -29,8 +29,6 @@ export function issueText(issue: Issue): string {
     MISSING_CASH_AMOUNT: '部分记录缺少现金金额',
     NO_IMPLEMENTED_YEAR_END_REPORT: '暂无年末报告期的实施分配记录',
     FISCAL_YEAR_NOT_ENDED: '该财年尚未结束',
-    SHARE_BASIS_CHANGED: '存在送转股，历史每股金额不直接用于当前价格计算',
-    INVALID_SHARE_RATIO: '送转比例数据异常',
     MISSING_REFERENCE_YEAR: '该财年暂无分红记录',
   }
   return messages[issue.code] ?? '部分来源字段缺失或异常'

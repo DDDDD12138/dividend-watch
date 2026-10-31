@@ -6,6 +6,8 @@ import { percent, timeLabel } from '../../lib/format'
 import { Link } from 'react-router'
 import { useWatchlistDividends } from './useWatchlistDividends'
 import { dividendStatusFor, issueText } from '../dividends/model'
+import { DividendNotices } from '../dividends/DividendNotices'
+import { dividendNoticeText } from '../dividends/dividendNoticeContent'
 import type { WatchlistRowResult } from './watchlistRowsState'
 import { isUsableQuote, quoteStatusFor, type WatchlistQuote } from './quotes'
 
@@ -63,6 +65,7 @@ export function StockRow({
   const dividendTitle = [
     reference ? `${reference.fiscalYear} 财年税前每股已实施分红` : '',
     ...(reference?.issues.map(issueText) ?? []),
+    ...(reference?.notices.map(dividendNoticeText) ?? []),
     history.response
       ? `获取于 ${timeLabel(history.response.meta.fetchedAt)}`
       : '',
@@ -161,6 +164,9 @@ export function StockRow({
         </strong>
         <span className="secondary">
           {reference ? '每股 · 税前' : history.loading ? '加载中…' : null}
+          {reference && (
+            <DividendNotices mode="compact" notices={reference.notices} />
+          )}
         </span>
         {dividendStatus && (
           <span className="row-status" role="status">

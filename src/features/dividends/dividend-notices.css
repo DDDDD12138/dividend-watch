@@ -1,0 +1,31 @@
+.dividend-notices--compact .dividend-notice--info,
+.dividend-notices--annual .dividend-notice--info {
+  color: var(--color-warning);
+}
+.dividend-notices--records .dividend-notice--info {
+  color: var(--color-text-muted);
+}
+.dividend-notice--error {
+  color: var(--color-danger);
+}
+.dividend-notices-separator {
+  color: var(--color-text-muted);
+}
+.dividend-notices--annual .dividend-notice {
+  padding: var(--space-3) var(--space-6);
+  margin: 0;
+  font-size: var(--font-size-xs);
+  border-top: 1px solid var(--color-border);
+}
+.dividend-notices--records {
+  display: grid;
+  gap: var(--space-1);
+}
+.dividend-notices--records .dividend-notice {
+  margin: 0;
+}
+@media (max-width: 760px) {
+  .dividend-notices--annual .dividend-notice {
+    padding-inline: var(--space-4);
+  }
+}

@@ -66,11 +66,16 @@ export interface EastmoneyDividend {
   issues: Issue[]
   raw: Record<string, unknown>
 }
+export interface DividendNotice {
+  code: 'SHARE_BASIS_CHANGED' | 'INVALID_SHARE_RATIO'
+}
 export interface AnnualDividend {
   fiscalYear: number
   implementedTotal: string | null
   implementedRecordCount: number
   calculationIssues: Issue[]
+  /** Informational notices that do not block cash calculations. */
+  notices: DividendNotice[]
 }
 export interface DividendHistory {
   company: Company
@@ -85,6 +90,7 @@ export interface DividendHistory {
     cashPerShare: string | null
     basis: 'eastmoney_implemented_sum'
     issues: Issue[]
+    notices: DividendNotice[]
   }
   coverage: {
     fetchedRecords: number

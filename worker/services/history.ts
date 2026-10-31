@@ -6,7 +6,11 @@ import type {
   Issue,
 } from '../../shared/api'
 import { EASTMONEY_IMPLEMENTED_PROGRESS } from '../../shared/api'
-import { sumAmounts, units } from '../../shared/money'
+import { sumAmounts } from '../../shared/money'
+import {
+  dividendNotices,
+  uniqueDividendNotices,
+} from '../../shared/dividendNotices'
 import { chinaYear } from '../../shared/time'
 import { eastmoneyUrl, type EastmoneyResult } from '../providers/eastmoney'
 /** Only clear, distinct record/ex dates establish separate distributions in one report period. */
@@ -65,28 +69,12 @@ export function buildHistory(
       calculationIssues.push({ code: 'NO_IMPLEMENTED_YEAR_END_REPORT' })
     if (year >= currentYear)
       calculationIssues.push({ code: 'FISCAL_YEAR_NOT_ENDED' })
-    if (
-      implemented.some((row) =>
-        [row.bonusRatio, row.transferRatio].some(
-          (value) => value !== null && units(value) > 0n,
-        ),
-      )
-    )
-      calculationIssues.push({ code: 'SHARE_BASIS_CHANGED' })
-    if (
-      implemented.some((row) =>
-        row.issues.some(
-          (issue) =>
-            issue.field === 'BONUS_RATIO' || issue.field === 'IT_RATIO',
-        ),
-      )
-    )
-      calculationIssues.push({ code: 'INVALID_SHARE_RATIO' })
     return {
       fiscalYear: year,
       implementedTotal,
       implementedRecordCount: implemented.length,
       calculationIssues,
+      notices: uniqueDividendNotices(records.flatMap(dividendNotices)),
     }
   })
   const referenceYear = currentYear - 1
@@ -99,19 +87,11 @@ export function buildHistory(
         ...(input.completeFetch ? [] : [{ code: 'INCOMPLETE_FETCH' }]),
         { code: 'MISSING_REFERENCE_YEAR' },
       ]
-  // Later implemented share changes also invalidate the historical per-share basis.
-  for (const year of annualSummaries.filter(
-    (year) => year.fiscalYear > referenceYear,
-  )) {
-    for (const issue of year.calculationIssues) {
-      if (
-        (issue.code === 'SHARE_BASIS_CHANGED' ||
-          issue.code === 'INVALID_SHARE_RATIO') &&
-        !referenceIssues.some((existing) => existing.code === issue.code)
-      )
-        referenceIssues.push(issue)
-    }
-  }
+  const notices = uniqueDividendNotices(
+    annualSummaries
+      .filter((year) => year.fiscalYear >= referenceYear)
+      .flatMap((year) => year.notices),
+  )
   return {
     code: company.code,
     company,
@@ -127,6 +107,7 @@ export function buildHistory(
           : null,
       basis: 'eastmoney_implemented_sum',
       issues: referenceIssues,
+      notices,
     },
     coverage: {
       fetchedRecords: input.fetchedRecords,

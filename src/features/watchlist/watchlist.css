@@ -161,6 +161,9 @@
 .dividend-cell .secondary {
   margin-top: var(--space-1);
 }
+.dividend-cell .secondary {
+  white-space: normal;
+}
 .company-meta {
   display: flex;
   align-items: center;

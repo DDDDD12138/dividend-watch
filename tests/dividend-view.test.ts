@@ -121,7 +121,7 @@ it('preserves gaps as unknown, does not use reference eligibility to erase known
   )
   data.annualSummaries.find(
     (item) => item.fiscalYear === 2025,
-  )!.calculationIssues = [{ code: 'SHARE_BASIS_CHANGED' }]
+  )!.calculationIssues = [{ code: 'NO_IMPLEMENTED_YEAR_END_REPORT' }]
   const view = historyView(data, '5')
   expect(
     view.chart.find((group) => group.year === 2023)?.summary,
@@ -171,6 +171,7 @@ it('only computes signed year-on-year changes against a usable consecutive year'
     implementedTotal: '0.3887',
     implementedRecordCount: 2,
     calculationIssues: [],
+    notices: [],
   }
   const previous = { ...current, fiscalYear: 2024, implementedTotal: '0.403' }
   const group = { year: 2025, summary: current, records: [] }
@@ -179,7 +180,7 @@ it('only computes signed year-on-year changes against a usable consecutive year'
   expect(yearChange(group, [{ ...previous, fiscalYear: 2023 }])).toBeNull()
   expect(
     yearChange(group, [
-      { ...previous, calculationIssues: [{ code: 'SHARE_BASIS_CHANGED' }] },
+      { ...previous, calculationIssues: [{ code: 'INCOMPLETE_FETCH' }] },
     ]),
   ).toBeNull()
 })

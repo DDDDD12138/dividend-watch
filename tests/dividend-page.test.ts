@@ -10,6 +10,9 @@ import {
   AllocationDialog,
   type AllocationSelection,
 } from '../src/features/dividends/AllocationDialog'
+import { buildHistory } from '../worker/services/history'
+import { fetchDividends } from '../worker/providers/eastmoney'
+import { bankCompanies, fixtureFetcher, now } from './helpers'
 
 vi.mock('../src/components/Modal', () => ({
   Modal: ({ children }: { children: ReactNode }) => children,
@@ -80,6 +83,53 @@ beforeEach(() => {
   vi.mocked(useResource).mockReset().mockReturnValue({ loading: false })
 })
 describe('independent dividend detail views', () => {
+  it('separates share information from invalid share data without blocking cash calculations', async () => {
+    const input = await fetchDividends(fixtureFetcher, bankCompanies[0], now)
+    const record = input.records.find(
+      (record) => record.reportDate === '2025-12-31',
+    )!
+    record.transferRatio = '1'
+    record.bonusRatio = null
+    record.issues.push({
+      code: 'INVALID_FIELD',
+      field: 'BONUS_RATIO',
+      recordId: record.recordId,
+    })
+    const data = buildHistory(bankCompanies[0], input, now)
+    vi.mocked(useDividends).mockReturnValue({
+      loading: false,
+      response: { data, meta: annual.response!.meta },
+    })
+    const html = renderPage()
+    expect(html).toContain(
+      'class="dividend-notice dividend-notice--info">该财年包含送股或转增',
+    )
+    expect(html).toContain(
+      'class="dividend-notice dividend-notice--error">送转资料异常，不影响现金分红计算。',
+    )
+    expect(html).toContain('class="reference-badge">首页参考')
+    expect(data.referenceDividend.cashPerShare).toBe('0.3887')
+    expect(data.referenceDividend.issues).toEqual([])
+  })
+  it('marks a cash reference year with transfers and displays notices separately from problems', async () => {
+    const input = await fetchDividends(fixtureFetcher, bankCompanies[0], now)
+    input.records.find(
+      (record) => record.reportDate === '2025-12-31',
+    )!.transferRatio = '1'
+    vi.mocked(useDividends).mockReturnValue({
+      loading: false,
+      response: {
+        data: buildHistory(bankCompanies[0], input, now),
+        meta: annual.response!.meta,
+      },
+    })
+    const html = renderPage()
+    expect(html).toContain('class="reference-badge">首页参考')
+    expect(html).toContain(
+      'class="dividend-notice dividend-notice--info">该财年包含送股或转增，现金分红按原始每股金额汇总。',
+    )
+    expect(html).not.toContain('历史每股金额不直接用于当前价格计算')
+  })
   it.each([
     [undefined, '来源未提供上市日期'],
     ['网络连接失败', '上市日期加载失败'],
@@ -180,6 +230,7 @@ describe('independent dividend detail views', () => {
           implementedTotal: '0.6',
           implementedRecordCount: 2,
           calculationIssues: [],
+          notices: [],
         },
       }),
     )

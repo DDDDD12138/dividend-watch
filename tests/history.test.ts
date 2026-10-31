@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import { fetchDividends, normalizeRecord } from '../worker/providers/eastmoney'
 import { buildHistory } from '../worker/services/history'
+import { calculateMetrics } from '../shared/money'
+import { historyView, yearChange } from '../src/features/dividends/model'
 import {
   fixtureFetcher,
   now,
@@ -12,6 +14,85 @@ async function input(code = '601939') {
   return fetchDividends(fixtureFetcher, bankIdentity(code), now)
 }
 describe('application calculations from source records', () => {
+  it('uses cash dividends for valuation and annual comparison without adjusting for transfers', async () => {
+    const data = await input()
+    data.records = data.records.filter(
+      (record) =>
+        record.fiscalYear === 2025 || record.reportDate === '2024-12-31',
+    )
+    for (const record of data.records) {
+      record.cashPerShare =
+        record.fiscalYear === 2024
+          ? '0.25'
+          : record.reportDate === '2025-06-30'
+            ? '0.15'
+            : '0.12'
+      record.transferRatio = record.reportDate === '2025-12-31' ? '1' : null
+    }
+    const history = buildHistory(bankCompanies[0], data, now)
+    expect(history.referenceDividend.cashPerShare).toBe('0.27')
+    expect(history.referenceDividend.issues).toEqual([])
+    expect(history.referenceDividend.notices).toEqual([
+      { code: 'SHARE_BASIS_CHANGED' },
+    ])
+    expect(
+      calculateMetrics(history.referenceDividend.cashPerShare, '6', '5'),
+    ).toEqual({
+      referenceYield: '0.045',
+      targetPrice: '5.40',
+      requiredDrop: '0.1',
+      reached: false,
+    })
+    expect(
+      yearChange(
+        historyView(history, '5').chart.at(-1)!,
+        history.annualSummaries,
+      ),
+    ).toBe('+8.00%')
+  })
+  it.each(['BONUS_RATIO', 'IT_RATIO'])(
+    'keeps cash calculations available when %s is malformed',
+    async (field) => {
+      const data = await input()
+      data.records[1] = await normalizeRecord(bankIdentity(), {
+        ...rows()[1],
+        [field]: 'invalid',
+      })
+      const history = buildHistory(bankCompanies[0], data, now)
+      expect(history.referenceDividend.cashPerShare).toBe('0.3887')
+      expect(history.referenceDividend.issues).toEqual([])
+      expect(history.referenceDividend.notices).toEqual([
+        { code: 'INVALID_SHARE_RATIO' },
+      ])
+      expect(history.records[1].issues).toContainEqual(
+        expect.objectContaining({ field, code: 'INVALID_FIELD' }),
+      )
+      expect(
+        yearChange(
+          historyView(history, '5').chart.at(-1)!,
+          history.annualSummaries,
+        ),
+      ).toBe('−3.55%')
+    },
+  )
+  it('only reports implemented share changes in the reference window, without duplicate notices', async () => {
+    const data = await input()
+    for (const record of data.records) record.transferRatio = '1'
+    const history = buildHistory(bankCompanies[0], data, now)
+    expect(history.referenceDividend.notices).toEqual([
+      { code: 'SHARE_BASIS_CHANGED' },
+    ])
+    expect(
+      history.annualSummaries.find((year) => year.fiscalYear === 2026)!.notices,
+    ).toEqual([])
+    for (const record of data.records.filter(
+      (record) => record.fiscalYear! >= 2025,
+    ))
+      record.transferRatio = null
+    expect(
+      buildHistory(bankCompanies[0], data, now).referenceDividend.notices,
+    ).toEqual([])
+  })
   it.each([true, false])(
     'reports incomplete fetching exactly once with reference-year records present=%s',
     async (present) => {
@@ -63,6 +144,7 @@ describe('application calculations from source records', () => {
         fiscalYear: 2025,
         cashPerShare: null,
         basis: 'eastmoney_implemented_sum',
+        notices: [],
         issues: [{ code: 'MISSING_REFERENCE_YEAR' }],
       })
       expect(
@@ -105,7 +187,7 @@ describe('application calculations from source records', () => {
       ).toBe(progress)
     },
   )
-  it('blocks previous-year valuation after a later implemented share change without erasing either annual total', async () => {
+  it('keeps previous-year cash usable after a later implemented share change', async () => {
     const data = await input()
     const current = data.records.find((record) => record.fiscalYear === 2026)!
     current.progress = '实施分配'
@@ -113,9 +195,9 @@ describe('application calculations from source records', () => {
     const history = buildHistory(bankCompanies[0], data, now)
     expect(history.referenceDividend).toMatchObject({
       fiscalYear: 2025,
-      cashPerShare: null,
+      cashPerShare: '0.3887',
     })
-    expect(history.referenceDividend.issues).toContainEqual({
+    expect(history.referenceDividend.notices).toContainEqual({
       code: 'SHARE_BASIS_CHANGED',
     })
     expect(
@@ -137,6 +219,7 @@ describe('application calculations from source records', () => {
       fiscalYear: 2025,
       cashPerShare: total,
       basis: 'eastmoney_implemented_sum',
+      notices: [],
       issues: [],
     })
     expect(history.records.every((r) => r.payDate === null)).toBe(true)
@@ -224,7 +307,7 @@ describe('application calculations from source records', () => {
       buildHistory(bankCompanies[0], data, now).referenceDividend.cashPerShare,
     ).toBe('0.3887')
   })
-  it('blocks a wrong-share-basis target without erasing the original cash total', async () => {
+  it('uses original cash totals for valuation despite share distributions', async () => {
     const data = await input()
     data.records.find((r) => r.reportDate === '2025-12-31')!.bonusRatio = '1'
     const history = buildHistory(bankCompanies[0], data, now)
@@ -232,7 +315,11 @@ describe('application calculations from source records', () => {
       history.annualSummaries.find((y) => y.fiscalYear === 2025)
         ?.implementedTotal,
     ).toBe('0.3887')
-    expect(history.referenceDividend.cashPerShare).toBeNull()
+    expect(history.referenceDividend.cashPerShare).toBe('0.3887')
+    expect(history.referenceDividend.issues).toEqual([])
+    expect(history.referenceDividend.notices).toEqual([
+      { code: 'SHARE_BASIS_CHANGED' },
+    ])
   })
   it('does not silently omit unknown cash or incomplete pages', async () => {
     const data = await input()

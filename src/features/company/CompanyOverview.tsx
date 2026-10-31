@@ -14,6 +14,7 @@ import { Modal } from '../../components/Modal'
 import { useResource, type Resource } from '../../data/api'
 import { percent, timeLabel } from '../../lib/format'
 import { marketNames } from '../dividends/model'
+import { DividendNotices } from '../dividends/DividendNotices'
 import { isUsableQuote } from '../watchlist/quotes'
 import { PriceCalculator } from './PriceCalculator'
 import './company.css'
@@ -94,7 +95,8 @@ export function CompanyOverview({
   const title = useRef<HTMLHeadingElement>(null)
   const data = profile.response?.data
   const company = data?.company ?? history.response?.data.company ?? quote
-  const reference = history.response?.data.referenceDividend
+  const dividendHistory = history.response?.data
+  const reference = dividendHistory?.referenceDividend
   const dividend = reference?.cashPerShare ?? null
   const price = isUsableQuote(quote) ? quote.price : null
   const metrics = calculateMetrics(dividend, price, expectedYield)
@@ -242,27 +244,40 @@ export function CompanyOverview({
         )}
       </section>
       <div className="overview-reference" aria-busy={history.loading}>
-        <p>
-          {reference ? (
-            dividend === null ? (
-              `${reference.fiscalYear} 财年每股分红暂不可用于计算`
+        <div className="overview-reference-content">
+          <p>
+            {reference ? (
+              dividend === null ? (
+                `${reference.fiscalYear} 财年每股分红暂不可用于计算`
+              ) : (
+                <>
+                  {reference.fiscalYear} 财年现金分红 <b>¥{dividend}</b>/股 ·
+                  税前
+                </>
+              )
+            ) : history.loading ? (
+              '分红加载中…'
             ) : (
-              <>
-                按 {reference.fiscalYear} 财年每股分红 <b>¥{dividend}</b> 试算 ·
-                税前
-              </>
-            )
-          ) : history.loading ? (
-            '分红加载中…'
-          ) : (
-            '分红暂不可用'
+              '分红暂不可用'
+            )}
+            {dividendStatus && (
+              <span className="overview-data-status" role="status">
+                {dividendStatus}
+              </span>
+            )}
+          </p>
+          {dividendHistory && (
+            <DividendNotices
+              mode="records"
+              records={dividendHistory.records.filter(
+                (record) =>
+                  record.fiscalYear !== null &&
+                  record.fiscalYear >=
+                    dividendHistory.referenceDividend.fiscalYear,
+              )}
+            />
           )}
-          {dividendStatus && (
-            <span className="overview-data-status" role="status">
-              {dividendStatus}
-            </span>
-          )}
-        </p>
+        </div>
         <Link
           to={`/dividends/${code}`}
           state={{ returnToOverview: location.pathname + location.search }}

@@ -9,6 +9,9 @@ import {
 } from '../shared/api'
 import { useResource, type Resource } from '../src/data/api'
 import { CompanyOverview } from '../src/features/company/CompanyOverview'
+import { buildHistory } from '../worker/services/history'
+import { fetchDividends } from '../worker/providers/eastmoney'
+import { bankCompanies, fixtureFetcher, now } from './helpers'
 
 vi.mock('../src/data/api', () => ({ useResource: vi.fn() }))
 // Rendering tests cover content and calculation; browser checks cover the native dialog.
@@ -37,6 +40,7 @@ const history: Resource<DividendHistory> = {
         fiscalYear: 2025,
         cashPerShare: '4.8',
         basis: 'eastmoney_implemented_sum',
+        notices: [],
         issues: [],
       },
       coverage: {
@@ -87,6 +91,26 @@ beforeEach(() => {
     .mockReturnValue({ loading: false, error: '网络连接失败' })
 })
 describe('company overview data boundaries', () => {
+  it('shows transfer details without blocking valuation or the calculator', async () => {
+    const input = await fetchDividends(fixtureFetcher, bankCompanies[0], now)
+    input.records.find(
+      (record) => record.reportDate === '2025-12-31',
+    )!.transferRatio = '1'
+    const data = buildHistory(bankCompanies[0], input, now)
+    const html = render({
+      history: { loading: false, response: { ...history.response!, data } },
+      quote: { ...quote, price: '10' },
+      expectedYield: '5.5',
+    })
+    expect(html).toContain('¥0.3887')
+    expect(html).toContain('3.89%')
+    expect(html.match(/¥7.06/g)).toHaveLength(2)
+    expect(html).toContain('每 10 股转增 1 股')
+    expect(html).toContain('2025 财年现金分红 <b>¥0.3887</b>/股 · 税前')
+    expect(html).not.toContain('未作送转调整')
+    expect(html).not.toContain('报告期：')
+    expect(html).not.toContain('每股分红暂不可用于计算')
+  })
   it.each([
     [true, true, false, '取消关注'],
     [false, true, true, '关注'],
@@ -171,6 +195,7 @@ describe('company overview data boundaries', () => {
         implementedTotal: '4.5',
         implementedRecordCount: 2,
         calculationIssues: [],
+        notices: [],
       },
     ]
     const html = render({

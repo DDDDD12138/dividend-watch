@@ -221,7 +221,7 @@ export function WatchlistPage() {
           </div>
         )}
         <p className="table-footer">
-          股息率与目标价格按上一财年税前每股已实施分红计算；数据不可用时不计算，不使用更早年份替代。
+          股息率与目标价格按上一财年税前每股已实施现金分红计算，未作送转调整。
         </p>
       </section>
       <FastScroll

@@ -10,6 +10,7 @@ import {
 import type { EastmoneyDividend } from '../../../shared/api'
 import { Button } from '../../components/Button'
 import { cash, issueText, type YearGroup } from './model'
+import { DividendNotices } from './DividendNotices'
 
 export type YearSectionHandle = {
   reveal: () => void
@@ -207,6 +208,9 @@ export function YearSection({
       </div>
       {!!problems.length && (
         <p className="year-problems">{problems.join('；')}。</p>
+      )}
+      {group?.summary && (
+        <DividendNotices mode="annual" notices={group.summary.notices} />
       )}
       {!group && (
         <p className="year-problems">报告期无法确认，记录未归入年度。</p>

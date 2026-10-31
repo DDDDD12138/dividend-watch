@@ -122,9 +122,35 @@ it('does not substitute data from another company or year on the first failed re
   expect(html).not.toContain('更新失败 · 使用')
   expect(html).toContain('class="yield-value">—</strong>')
 })
+it('shows share changes as information while keeping cash, yield and target visible', async () => {
+  const input = await fetchDividends(fixtureFetcher, bankCompanies[0], now)
+  input.records.find(
+    (record) => record.reportDate === '2025-12-31',
+  )!.transferRatio = '1'
+  const data = buildHistory(bankCompanies[0], input, now)
+  vi.mocked(useWatchlistDividends).mockReturnValue({
+    loading: false,
+    response: {
+      data,
+      meta: {
+        source: 'eastmoney',
+        fetchedAt: now.toISOString(),
+        cache: 'miss',
+        issues: [],
+      },
+    },
+  })
+  const html = renderRow()
+  expect(html).toContain(
+    '<span class="dividend-notice dividend-notice--info">有送转</span>',
+  )
+  expect(html).not.toContain('class="row-status"')
+  expect(html).toContain('¥0.3887')
+  expect(html).toContain('3.89%')
+  expect(html).toContain('¥7.06')
+})
 it.each([
   ['missing-year', '该财年暂无分红记录'],
-  ['share-change', '存在送转股，历史每股金额不直接用于当前价格计算'],
   ['incomplete', '分红记录尚未获取完整'],
 ])(
   'uses the same reason in the visible status and explanation for %s',
@@ -134,10 +160,6 @@ it.each([
       input.records = input.records.filter(
         (record) => record.fiscalYear !== 2025,
       )
-    if (scenario === 'share-change')
-      input.records.find(
-        (record) => record.reportDate === '2025-12-31',
-      )!.bonusRatio = '1'
     if (scenario === 'incomplete') input.completeFetch = false
     const data = buildHistory(bankCompanies[0], input, now)
     vi.mocked(useWatchlistDividends).mockReturnValue({
