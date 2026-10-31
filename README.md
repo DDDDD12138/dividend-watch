@@ -76,7 +76,7 @@ tsconfig.node.json    Vite 配置文件的 TypeScript 配置
 tsconfig.json         TypeScript 项目引用入口
 ```
 
-共享类型和精确计算位于 `shared/`，来源适配与汇总位于 `worker/`，测试位于 `tests/`。CI、Git hooks 和云端部署后续接入。
+共享类型和精确计算位于 `shared/`，来源适配与汇总位于 `worker/`，测试位于 `tests/`。CI 和 Git hooks 后续接入。
 
 ## 本地 Worker API
 
@@ -102,4 +102,14 @@ curl http://localhost:5173/api/health
 
 构建产物位于 `dist/client/` 和 `dist/dividend_watch/`。运行 `pnpm preview` 可在本地检查构建后的前端和 API。
 
-本次仅配置本地运行，尚未部署或创建任何云端资源。`.wrangler/`、`.dev.vars*` 和 `.env*` 已加入 Git 忽略规则（示例文件除外）。
+`.wrangler/`、`.dev.vars*` 和 `.env*` 已加入 Git 忽略规则（示例文件除外）。
+
+## 部署到 Cloudflare
+
+在已登录 Cloudflare 的 WSL / Bash 环境中运行：
+
+```bash
+pnpm deploy:cloudflare
+```
+
+脚本先构建，再使用 `dist/dividend_watch/wrangler.json` 部署；部署说明自动取最近一次 Git 提交的短哈希和标题。先提交再部署，可让说明对应此次改动。使用 `pnpm deploy:cloudflare --dry-run` 可仅验证构建和部署打包，不发布。
