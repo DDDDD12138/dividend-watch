@@ -113,3 +113,22 @@ pnpm deploy:cloudflare
 ```
 
 脚本先构建，再使用 `dist/dividend_watch/wrangler.json` 部署；部署说明自动取最近一次 Git 提交的短哈希和标题。先提交再部署，可让说明对应此次改动。使用 `pnpm deploy:cloudflare --dry-run` 可仅验证构建和部署打包，不发布。
+
+## 部署到腾讯 EdgeOne Pages
+
+`*.workers.dev` 在中国大陆被阻断，自定义域名虽可访问，但 Cloudflare 免费计划把大陆流量导向美西节点，晚高峰丢包严重。EdgeOne Pages 作为第二个部署目标并存，业务代码两边共用，Cloudflare 链路不受影响。
+
+- `functions/api/[[default]].ts` 与 `functions/api/index.ts`：EdgeOne 入口，导出 `onRequest`，接管 `/api` 和 `/api/*`，其余路径由 Pages 提供静态文件并自带 SPA 回退。
+- `functions/edgeone-polyfills.ts`：按规范实现并安装 EdgeOne 运行时缺少的 `AbortSignal.timeout`、`AbortSignal.any` 和 `Response.json`（实测缺失，缺了后者缓存会静默失效）；原生存在时不触碰。行为由 `tests/edgeone-polyfills.test.ts` 覆盖。
+- `functions/edgeone-fetch.ts`：EdgeOne 的 `fetch` 会忽略 `RequestInit.signal`（实测 abort 后请求仍跑满），该包装在等待侧实现 signal 语义并通过 `createApp({ fetcher })` 注入，保证超时预算与 Cloudflare 一致。
+- `pnpm dev:edgeone`：本地 8088 端口运行的就是真实的 EdgeOne 边缘运行时（实测与线上一致：同样缺少上述 API、同样忽略 signal），可在不发布的情况下验证运行时行为。腾讯的运行时类型包 `@edgeone/ef-types` 自 2024 年起未更新且与实测不符，因此不作为类型检查依据；新用到的 Web API 是否被 EdgeOne 支持，以 `pnpm dev:edgeone` 实测为准。
+- `vite.edgeone.config.ts`：不含 Cloudflare 插件的前端构建，输出到 `dist/edgeone/`。
+- `edgeone.json`：EdgeOne 的安装、构建命令与输出目录，GitHub 自动构建和 CLI 都读取它。
+
+```bash
+pnpm build:edgeone    # 仅构建前端产物
+pnpm deploy:edgeone   # 构建并用 edgeone CLI 发布（需先 pnpm exec edgeone login）
+pnpm exec edgeone makers deploy --anonymous --site global -a overseas   # 免登录临时预览，一小时后失效
+```
+
+加速区域选“全球（不含中国大陆）”（CLI 参数 `-a overseas`），无需备案。EdgeOne 分配的默认域名（`*.edgeone.dev`）按平台策略对中国大陆网络一律返回 401，大陆访问必须绑定自定义域名。当前绑定的是 `cn.divwatch.top`：在 EdgeOne 项目的 Domains 页添加域名并完成 TXT 归属验证，再在 Cloudflare DNS 中添加 CNAME `cn` 指向 EdgeOne 给出的地址并关闭代理（灰色云朵，否则流量会先经过 Cloudflare），最后在 HTTPS configuration 中申请免费证书并开启 Force HTTPS。`.edgeone/` 与 `dividend-watch.zip` 为 CLI 本地产物，已加入 Git 忽略规则。

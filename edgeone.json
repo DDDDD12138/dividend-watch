@@ -1,0 +1,7 @@
+{
+  "installCommand": "pnpm install --frozen-lockfile",
+  "buildCommand": "pnpm build:edgeone",
+  "devCommand": "vite --config vite.edgeone.config.ts",
+  "outputDirectory": "dist/edgeone",
+  "nodeVersion": "24.5.0"
+}

@@ -12,8 +12,10 @@ dist
 dist-ssr
 *.local
 
-# Cloudflare local state and secrets
+# Cloudflare / EdgeOne local state and secrets
 .wrangler/
+.edgeone/
+/dividend-watch.zip
 .dev.vars*
 .env*
 !.env.example
@@ -29,3 +31,9 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Tencent Cloud EdgeOne
+.env
+.edgeone/*
+.tef_dist/*
+  

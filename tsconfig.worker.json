@@ -6,5 +6,5 @@
     "moduleResolution": "bundler",
     "types": ["./worker-configuration.d.ts"]
   },
-  "include": ["worker"]
+  "include": ["worker", "functions"]
 }
