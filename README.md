@@ -38,6 +38,7 @@ Prettier 按[官方建议](https://prettier.io/docs/install.html)固定精确版
 | 命令                    | 用途                                                              |
 | ----------------------- | ----------------------------------------------------------------- |
 | `pnpm dev`              | 同时启动前端和本地 Worker                                         |
+| `pnpm icons:generate`   | 从 SVG 生成多尺寸 favicon.ico                                     |
 | `pnpm format`           | 使用 Prettier 格式化文件                                          |
 | `pnpm format:check`     | 检查格式，不修改文件                                              |
 | `pnpm lint`             | 使用 Oxlint 检查代码                                              |
@@ -57,6 +58,18 @@ pnpm check
 pnpm test
 pnpm build
 ```
+
+## 网站图标
+
+`public/icon.svg` 是浏览器图标的源文件。修改后运行：
+
+```bash
+pnpm icons:generate
+```
+
+脚本使用 [resvg-js](https://github.com/thx/resvg-js) 分别渲染 16、32、48、64、128、256px，再通过 [icon-encoder](https://github.com/shockpkg/icon-encoder) 封装成带透明通道、内部采用 PNG 压缩的 `public/favicon.ico`。生成前检查 `index.html` 的 ICO 尺寸声明是否一致。
+
+将 SVG、生成后的 ICO 和相关声明一起提交。普通构建直接使用已生成的文件，无需重复生成。`apple-touch-icon.png` 和 manifest 引用的 PNG 用于主屏幕场景，不由这个命令更新。
 
 ## 工程规范
 
