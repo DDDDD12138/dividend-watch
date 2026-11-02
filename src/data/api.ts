@@ -1,5 +1,33 @@
 import { useEffect, useState } from 'react'
-import type { ApiResponse, DividendHistory } from '../../shared/api'
+import {
+  MAX_WATCHLIST_SIZE,
+  type ApiErrorCode,
+  type ApiResponse,
+  type DividendHistory,
+} from '../../shared/api'
+
+const unavailableMessage = '数据暂不可用，请稍后重试'
+const errorMessages: Record<ApiErrorCode, string> = {
+  INVALID_QUERY: '请输入 1–50 字符的公司名称或代码',
+  INVALID_CODES: `请提供最多 ${MAX_WATCHLIST_SIZE} 个六位股票代码`,
+  INVALID_CODE: '股票代码必须为六位数字',
+  UNSUPPORTED_COMPANY: '暂不支持该公司',
+  NOT_FOUND: '接口不存在，请刷新页面后重试',
+  UPSTREAM_UNAVAILABLE: unavailableMessage,
+  INTERNAL_ERROR: '服务出现异常，请稍后重试',
+}
+
+function apiErrorMessage(body: unknown): string {
+  if (!body || typeof body !== 'object' || !('error' in body))
+    return unavailableMessage
+  const error = body.error
+  if (!error || typeof error !== 'object' || !('code' in error))
+    return unavailableMessage
+  const code = error.code
+  return typeof code === 'string' && Object.hasOwn(errorMessages, code)
+    ? errorMessages[code as ApiErrorCode]
+    : unavailableMessage
+}
 
 export interface Resource<T> {
   response?: ApiResponse<T>
@@ -20,8 +48,13 @@ export async function request<T>(
     signal: AbortSignal.any([signal, AbortSignal.timeout(30_000)]),
   })
   if (!response.ok) {
-    if (response.status === 404) throw new Error('暂不支持该公司')
-    throw new Error('数据暂不可用，请稍后重试')
+    let body: unknown
+    try {
+      body = await response.json()
+    } catch (error) {
+      if (!(error instanceof SyntaxError)) throw error
+    }
+    throw new Error(apiErrorMessage(body))
   }
   return response.json() as Promise<ApiResponse<T>>
 }

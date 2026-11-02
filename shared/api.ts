@@ -1,14 +1,30 @@
+export type ApiErrorCode =
+  | 'INVALID_QUERY'
+  | 'INVALID_CODES'
+  | 'INVALID_CODE'
+  | 'UNSUPPORTED_COMPANY'
+  | 'NOT_FOUND'
+  | 'UPSTREAM_UNAVAILABLE'
+  | 'INTERNAL_ERROR'
 export interface ApiError {
-  code: string
-  message: string
+  code: ApiErrorCode
 }
+export interface ApiFailure {
+  error: ApiError
+}
+export type QuoteErrorCode =
+  | 'UNSUPPORTED_COMPANY'
+  | 'COMPANY_UNAVAILABLE'
+  | 'QUOTE_UNAVAILABLE'
+  | 'INVALID_QUOTE'
 export interface Issue {
   code: string
   field?: string
   recordId?: string
 }
+export type DataSource = 'tencent' | 'eastmoney'
 export interface Meta {
-  source: 'tencent' | 'eastmoney'
+  source: DataSource
   fetchedAt: string
   cache: 'hit' | 'miss'
   issues: Issue[]
@@ -40,7 +56,7 @@ export interface Quote extends Company {
 export interface QuoteItem {
   code: string
   quote: Quote | null
-  error: ApiError | null
+  error: { code: QuoteErrorCode } | null
 }
 /** Source progress value that marks a distribution as implemented; only these records count toward annual totals. */
 export const EASTMONEY_IMPLEMENTED_PROGRESS = '实施分配'

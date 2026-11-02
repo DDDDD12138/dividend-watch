@@ -156,7 +156,11 @@ describe('API contracts', () => {
     },
   )
   it('keeps company, quotes and dividend caches independent', async () => {
-    const fetcher = vi.fn(fixtureFetcher)
+    const fetcher = vi.fn(async (input: string | URL | Request) =>
+      new URL(String(input)).hostname === 'qt.gtimg.cn'
+        ? new Response(null, { status: 503 })
+        : fixtureFetcher(input),
+    )
     const app = createApp({ fetcher, cache: new MemoryCache(), now: () => now })
     await app.request('/api/companies/601939/dividends')
     expect((await app.request('/api/quotes?codes=601939')).status).toBe(503)
@@ -265,4 +269,41 @@ it('bounds identity resolution concurrency within a batch', async () => {
     (await app.request(`/api/quotes?codes=${codes.join(',')}`)).status,
   ).toBe(404)
   expect(peak).toBe(5)
+})
+
+it('does not read the previous cache namespace', async () => {
+  const cache = new MemoryCache()
+  await cache.put(
+    new Request('https://dividend-watch-cache.invalid/a-share-v2/source'),
+    Response.json({ expiresAt: now.getTime() + 60_000, value: 'old' }),
+  )
+  const load = vi.fn(async () => 'current')
+  const source = new SourceCache(cache, () => now)
+  expect(await source.get('source', 60, load, () => true)).toEqual({
+    value: 'current',
+    hit: false,
+  })
+  expect(await source.get('source', 60, load, () => true)).toEqual({
+    value: 'current',
+    hit: true,
+  })
+  expect(load).toHaveBeenCalledTimes(1)
+})
+
+it('recomputes the dividend reference year after Shanghai midnight with cached source records', async () => {
+  let time = new Date('2026-12-31T15:59:00Z')
+  const fetcher = vi.fn(fixtureFetcher)
+  const app = createApp({ fetcher, cache: new MemoryCache(), now: () => time })
+  const before = (await (
+    await app.request('/api/companies/601939/dividends')
+  ).json()) as ApiResponse<DividendHistory>
+  time = new Date('2026-12-31T16:01:00Z')
+  const after = (await (
+    await app.request('/api/companies/601939/dividends')
+  ).json()) as ApiResponse<DividendHistory>
+  expect(before.data.referenceDividend.fiscalYear).toBe(2025)
+  expect(after.data.referenceDividend.fiscalYear).toBe(2026)
+  expect(after.meta.cache).toBe('hit')
+  expect(after.meta.fetchedAt).toBe(before.meta.fetchedAt)
+  expect(fetcher).toHaveBeenCalledTimes(2)
 })

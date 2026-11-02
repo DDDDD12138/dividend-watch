@@ -47,10 +47,10 @@ it('cleans removed companies and ignores their responses, including after re-add
 it('keeps the last quote on individual failure while preserving the failure indication', () => {
   const previous = reconcileQuotes(['600000'], {}, [item('600000')])
   const failed = reconcileQuotes(['600000', '600001'], previous, [
-    ...['600000', '600001'].map((code) => ({
+    ...['600000', '600001'].map((code): QuoteItem => ({
       code,
       quote: null,
-      error: { code: 'QUOTE_UNAVAILABLE', message: '来源记录缺失' },
+      error: { code: 'QUOTE_UNAVAILABLE' },
     })),
   ])
   expect(failed['600000']).toEqual({

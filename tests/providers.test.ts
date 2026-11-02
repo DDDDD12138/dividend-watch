@@ -217,7 +217,13 @@ describe('quotes and network', () => {
       },
     )
     await expect(
-      request(fetcher, 'https://example.com', AbortSignal.timeout(1000), 1000),
+      request(
+        fetcher,
+        'https://example.com',
+        AbortSignal.timeout(1000),
+        1000,
+        'tencent',
+      ),
     ).rejects.toThrow('302')
     expect(fetcher).toHaveBeenCalledTimes(1)
   })
@@ -234,7 +240,13 @@ describe('quotes and network', () => {
         }),
     )
     await expect(
-      request(fetcher, 'https://example.com', new AbortController().signal, 10),
+      request(
+        fetcher,
+        'https://example.com',
+        new AbortController().signal,
+        10,
+        'tencent',
+      ),
     ).rejects.toThrow()
     expect(fetcher).toHaveBeenCalledTimes(1)
   })

@@ -97,7 +97,10 @@ tsconfig.json         TypeScript 项目引用入口
 
 `pnpm dev` 使用 Cloudflare Vite 插件在本地 workerd 中运行 Hono，前端使用相对路径请求同源接口。无需登录 Cloudflare，也无需先部署。
 
-- `worker/index.ts`：Worker 入口，业务路由在 `worker/app.ts`；`GET /api/health` 返回 `{"status":"ok","service":"dividend-watch"}`。
+- `worker/index.ts`：Worker 入口，HTTP 路由与依赖组装在 `worker/app.ts`；`GET /api/health` 返回 `{"status":"ok","service":"dividend-watch"}`。
+- `worker/validation.ts`：查询词、单个代码和批量代码校验；`worker/app.ts` 统一映射 HTTP 错误，不包含业务编排或展示文案。
+- `worker/services/`：公司身份、行情、资料、分红与年度统计服务，负责来源调用、各自缓存策略、业务计算与结果组装。行情并发状态限定在单次请求内。
+- `worker/providers/`：来源请求与标准化；东方财富两个历史接口共用分页流程。预期来源错误与内部异常分开处理，前端按共享错误码生成提示。
 - `wrangler.jsonc`：Worker 配置，`/api` 和 `/api/*` 优先进入 Worker；不存在的 API 返回 JSON 404，其他页面使用 SPA 回退。
 - `tsconfig.worker.json`：独立 Worker 类型环境，继承严格检查设置，通过 `compilerOptions.types` 引用生成文件。
 - `worker-configuration.d.ts`：由 `pnpm cf-typegen`（Wrangler 官方命令）生成并纳入版本控制，不手动编辑；修改 Wrangler 配置后重新生成。

@@ -1,5 +1,6 @@
+import { SourceDataError } from './errors'
 import type { Company, Issue, Market } from '../../shared/api'
-import { object, request, type Fetcher } from './http'
+import { object, readJson, request, type Fetcher } from './http'
 
 export const companySearchUrl =
   'https://searchapi.eastmoney.com/api/suggest/get'
@@ -13,13 +14,16 @@ const markets: Readonly<Record<string, Market>> = {
 }
 const stockTypes = new Set(['1', '2', '25', '27'])
 export function parseCompanies(value: unknown) {
-  const table = object(object(value).QuotationCodeTable)
+  const table = object(
+    object(value, 'eastmoney').QuotationCodeTable,
+    'eastmoney',
+  )
   if (
     table.Status !== 0 ||
     !Number.isInteger(table.TotalCount) ||
     Number(table.TotalCount) < 0
   )
-    throw new Error('Invalid company search status')
+    throw new SourceDataError('eastmoney', 'Invalid company search status')
   if (table.Status === 0 && table.TotalCount === 0 && table.Data === null)
     return { companies: [] as Company[], issues: [] as Issue[] }
   if (
@@ -27,15 +31,15 @@ export function parseCompanies(value: unknown) {
     table.Data.length > Number(table.TotalCount) ||
     (table.Data.length === 0 && table.TotalCount !== 0)
   )
-    throw new Error('Invalid company search response')
+    throw new SourceDataError('eastmoney', 'Invalid company search response')
   const companies = new Map<string, Company>()
   const conflicts = new Set<string>()
   const issues: Issue[] = []
   for (const value of table.Data) {
     try {
-      const row = object(value)
+      const row = object(value, 'eastmoney')
       if (typeof row.SecurityType !== 'string')
-        throw new Error('Missing security type')
+        throw new SourceDataError('eastmoney', 'Missing security type')
       if (!stockTypes.has(row.SecurityType)) continue
       const market = markets[`${row.SecurityType}:${row.JYS}`]
       if (
@@ -45,7 +49,7 @@ export function parseCompanies(value: unknown) {
         typeof row.Name !== 'string' ||
         !row.Name.trim()
       )
-        throw new Error('Invalid stock identity')
+        throw new SourceDataError('eastmoney', 'Invalid stock identity')
       const company: Company = { code: row.Code, name: row.Name.trim(), market }
       const previous = companies.get(company.code)
       if (
@@ -56,7 +60,8 @@ export function parseCompanies(value: unknown) {
         issues.push({ code: 'AMBIGUOUS_COMPANY', field: company.code })
       }
       companies.set(company.code, company)
-    } catch {
+    } catch (error) {
+      if (!(error instanceof SourceDataError)) throw error
       issues.push({ code: 'INVALID_COMPANY_IDENTITY' })
     }
   }
@@ -79,10 +84,9 @@ export async function searchCompanies(
     type: '14',
     count: '30',
   }).toString()
-  signal.throwIfAborted()
-  const response = await request(fetcher, url, signal, 5000)
-  const result = parseCompanies(await response.json())
+  const response = await request(fetcher, url, signal, 5000, 'eastmoney')
+  const result = parseCompanies(await readJson(response, 'eastmoney'))
   if (!result.companies.length && result.issues.length)
-    throw new Error('No valid company identities')
+    throw new SourceDataError('eastmoney', 'No valid company identities')
   return { ...result, fetchedAt: now.toISOString() }
 }

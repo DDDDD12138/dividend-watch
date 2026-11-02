@@ -17,7 +17,7 @@ export class SourceCache {
   ): Promise<{ value: T; hit: boolean }> {
     // Versioned contracts keep earlier source responses out of current caches.
     const request = new Request(
-      `https://dividend-watch-cache.invalid/a-share-v2/${key}`,
+      `https://dividend-watch-cache.invalid/a-share-v3/${key}`,
     )
     try {
       const response = await this.cache?.match(request)

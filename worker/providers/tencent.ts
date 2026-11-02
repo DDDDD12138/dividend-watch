@@ -1,6 +1,7 @@
+import { SourceDataError } from './errors'
 import type { Company, Issue, QuoteItem } from '../../shared/api'
-import { decimal, units } from '../../shared/money'
-import { date, request, type Fetcher } from './http'
+import { InvalidAmount, decimal, units } from '../../shared/money'
+import { date, readBytes, request, type Fetcher } from './http'
 export function parseQuotes(
   body: string,
   fetchedAt: string,
@@ -15,14 +16,14 @@ export function parseQuotes(
       return {
         code,
         quote: null,
-        error: { code: 'QUOTE_UNAVAILABLE', message: '来源记录缺失或重复' },
+        error: { code: 'QUOTE_UNAVAILABLE' },
       }
     const fields = rows[0][2].split('~')
     if (fields.length < 31 || fields[2] !== code || !fields[1]?.trim())
       return {
         code,
         quote: null,
-        error: { code: 'INVALID_QUOTE', message: '来源字段校验失败' },
+        error: { code: 'INVALID_QUOTE' },
       }
     const issues: Issue[] = []
     let price: string | null = null,
@@ -30,9 +31,14 @@ export function parseQuotes(
     try {
       const value = units(fields[3])
       if (value <= 0n || value % 1_000_000n !== 0n)
-        throw new Error('Invalid price')
+        throw new SourceDataError('tencent', 'Invalid price')
       price = decimal(value)
-    } catch {
+    } catch (error) {
+      if (
+        !(error instanceof SourceDataError) &&
+        !(error instanceof InvalidAmount)
+      )
+        throw error
       issues.push({ code: 'INVALID_PRICE' })
     }
     try {
@@ -43,15 +49,17 @@ export function parseQuotes(
         +stamp.slice(10, 12) > 59 ||
         +stamp.slice(12, 14) > 59
       )
-        throw new Error('Invalid time')
+        throw new SourceDataError('tencent', 'Invalid time')
       const day = date(
         `${stamp.slice(0, 4)}-${stamp.slice(4, 6)}-${stamp.slice(6, 8)}`,
+        'tencent',
       )
       const time = `${day}T${stamp.slice(8, 10)}:${stamp.slice(10, 12)}:${stamp.slice(12, 14)}+08:00`
       if (Date.parse(time) > Date.parse(fetchedAt) + 60_000)
-        throw new Error('Future quote')
+        throw new SourceDataError('tencent', 'Future quote')
       quoteTime = time
-    } catch {
+    } catch (error) {
+      if (!(error instanceof SourceDataError)) throw error
       issues.push({ code: 'INVALID_QUOTE_TIME' })
     }
     return {
@@ -79,11 +87,19 @@ export async function fetchQuotes(
     `https://qt.gtimg.cn/q=${companies.map(({ market, code }) => `${market.toLowerCase()}${code}`).join(',')}`,
     AbortSignal.timeout(5000),
     5000,
+    'tencent',
   )
-  const text = new TextDecoder('gb18030', {
-    fatal: true,
-    ignoreBOM: false,
-  }).decode(await response.arrayBuffer())
+  const bytes = await readBytes(response, 'tencent')
+  const decoder = new TextDecoder('gb18030', { fatal: true, ignoreBOM: false })
+  let text: string
+  try {
+    text = decoder.decode(bytes)
+  } catch (error) {
+    if (!(error instanceof TypeError)) throw error
+    throw new SourceDataError('tencent', 'Invalid quote encoding', {
+      cause: error,
+    })
+  }
   return {
     items: parseQuotes(text, now.toISOString(), companies),
     fetchedAt: now.toISOString(),

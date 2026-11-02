@@ -2,6 +2,15 @@ import fixture from './fixtures/eastmoney.json'
 import type { Company, StockIdentity } from '../shared/api'
 import type { Fetcher } from '../worker/providers/http'
 export const now = new Date('2026-10-20T01:00:00Z')
+export function failedResponse(cause: unknown) {
+  return new Response(
+    new ReadableStream({
+      start(controller) {
+        controller.error(cause)
+      },
+    }),
+  )
+}
 export function rows(code = '601939'): Record<string, unknown>[] {
   return structuredClone(
     fixture.companies[code as keyof typeof fixture.companies],

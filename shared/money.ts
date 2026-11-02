@@ -1,12 +1,15 @@
 const SCALE = 100_000_000n
+export class InvalidAmount extends Error {
+  override name = 'InvalidAmount'
+}
 export function units(value: string): bigint {
   if (!/^(0|[1-9]\d{0,15})(\.\d{1,8})?$/.test(value))
-    throw new Error('Invalid decimal')
+    throw new InvalidAmount('Invalid decimal')
   const [whole, fraction = ''] = value.split('.')
   return BigInt(whole) * SCALE + BigInt(fraction.padEnd(8, '0'))
 }
 export function decimal(value: bigint): string {
-  if (value < 0n) throw new Error('Negative amount')
+  if (value < 0n) throw new InvalidAmount('Negative amount')
   const fraction = (value % SCALE)
     .toString()
     .padStart(8, '0')
@@ -16,7 +19,7 @@ export function decimal(value: bigint): string {
 export function perShare(perTen: string): string {
   const value = units(perTen)
   if (value % 10n !== 0n)
-    throw new Error('Per-share precision exceeds 8 decimals')
+    throw new InvalidAmount('Per-share precision exceeds 8 decimals')
   return decimal(value / 10n)
 }
 export function sumAmounts(values: (string | null)[]): string | null {

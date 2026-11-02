@@ -1,6 +1,8 @@
 import type { EastmoneyDividend, Issue, StockIdentity } from '../../shared/api'
-import { decimal, perShare, units } from '../../shared/money'
-import { date, fingerprint, object, request, type Fetcher } from './http'
+import { InvalidAmount, decimal, perShare, units } from '../../shared/money'
+import { date, fingerprint, object, type Fetcher } from './http'
+import { SourceDataError } from './errors'
+import { fetchEastmoneyPages } from './eastmoney-pagination'
 export const eastmoneyUrl =
   'https://datacenter-web.eastmoney.com/api/data/v1/get'
 export interface EastmoneyResult {
@@ -14,17 +16,19 @@ export interface EastmoneyResult {
 function amount(raw: unknown): string | null {
   if (raw === null || raw === undefined || raw === '') return null
   if (typeof raw !== 'string' && typeof raw !== 'number')
-    throw new Error('Invalid amount')
+    throw new SourceDataError('eastmoney', 'Invalid amount')
   let value = String(raw)
   if (typeof raw === 'number' && /e/i.test(value)) {
     value = raw.toFixed(8)
-    if (Number(value) !== raw) throw new Error('Excess precision')
+    if (Number(value) !== raw)
+      throw new SourceDataError('eastmoney', 'Excess precision')
   }
   return decimal(units(value))
 }
 function optionalText(raw: unknown): string | null {
   if (raw === null || raw === undefined || raw === '') return null
-  if (typeof raw !== 'string') throw new Error('Invalid text')
+  if (typeof raw !== 'string')
+    throw new SourceDataError('eastmoney', 'Invalid text')
   return raw.trim() || null
 }
 export async function normalizeRecord(
@@ -32,9 +36,9 @@ export async function normalizeRecord(
   value: unknown,
 ): Promise<EastmoneyDividend> {
   const { code, market } = identity
-  const raw = object(value)
+  const raw = object(value, 'eastmoney')
   if (raw.SECURITY_CODE !== code || raw.SECUCODE !== `${code}.${market}`)
-    throw new Error('Invalid stock identity')
+    throw new SourceDataError('eastmoney', 'Invalid stock identity')
   const recordId = await fingerprint(raw),
     issues: Issue[] = []
   function read<T>(
@@ -47,19 +51,26 @@ export async function normalizeRecord(
       if (required && result === null)
         issues.push({ code: 'MISSING_FIELD', field, recordId })
       return result
-    } catch {
+    } catch (error) {
+      if (
+        !(error instanceof SourceDataError) &&
+        !(error instanceof InvalidAmount)
+      )
+        throw error
       issues.push({ code: 'INVALID_FIELD', field, recordId })
       return null
     }
   }
-  const reportDate = read('REPORT_DATE', date, true)
+  const parseDate = (value: unknown) => date(value, 'eastmoney')
+  const reportDate = read('REPORT_DATE', parseDate, true)
   const progress = read('ASSIGN_PROGRESS', optionalText, true)
   const cashPerTenShares = read('PRETAX_BONUS_RMB', amount, true)
   let cashPerShare: string | null = null
   if (cashPerTenShares !== null) {
     try {
       cashPerShare = perShare(cashPerTenShares)
-    } catch {
+    } catch (error) {
+      if (!(error instanceof InvalidAmount)) throw error
       issues.push({
         code: 'INVALID_FIELD',
         field: 'PRETAX_BONUS_RMB',
@@ -76,10 +87,10 @@ export async function normalizeRecord(
     progress,
     cashPerTenShares,
     cashPerShare,
-    planNoticeDate: read('PLAN_NOTICE_DATE', date),
-    latestNoticeDate: read('NOTICE_DATE', date),
-    recordDate: read('EQUITY_RECORD_DATE', date),
-    exDate: read('EX_DIVIDEND_DATE', date),
+    planNoticeDate: read('PLAN_NOTICE_DATE', parseDate),
+    latestNoticeDate: read('NOTICE_DATE', parseDate),
+    recordDate: read('EQUITY_RECORD_DATE', parseDate),
+    exDate: read('EX_DIVIDEND_DATE', parseDate),
     payDate: null,
     announcementUrl: null,
     bonusRatio: read('BONUS_RATIO', amount),
@@ -95,72 +106,20 @@ export async function fetchDividends(
   now: Date,
 ): Promise<EastmoneyResult> {
   const { code, market } = identity
-  const rawRows: unknown[] = [],
-    issues: Issue[] = []
-  let pagesRead = 0,
-    pages = 1,
-    count: number | null = null,
-    completeFetch = true
-  const budget = AbortSignal.timeout(20_000)
-  for (let page = 1; page <= pages; page++) {
-    try {
-      if (page > 20) throw new Error('Pagination limit')
-      const url = new URL(eastmoneyUrl)
-      url.search = new URLSearchParams({
-        reportName: 'RPT_SHAREBONUS_DET',
-        columns: 'ALL',
-        sortColumns: 'REPORT_DATE',
-        sortTypes: '-1',
-        pageSize: '100',
-        pageNumber: String(page),
-        source: 'WEB',
-        client: 'WEB',
-        filter: `(SECUCODE="${code}.${market}")`,
-      }).toString()
-      const response = await request(fetcher, url, budget, 10_000)
-      const body = object(await response.json())
-      // The source's explicit empty-result code (observed for 688981.SH).
-      // An empty later page is still a pagination failure, not an empty history.
-      if (
-        page === 1 &&
-        body.success === false &&
-        body.code === 9201 &&
-        body.result === null
-      ) {
-        count = 0
-        pagesRead++
-        break
-      }
-      if (body.success !== true) throw new Error('Source rejected request')
-      const result = object(body.result)
-      if (
-        !Array.isArray(result.data) ||
-        !Number.isInteger(result.pages) ||
-        Number(result.pages) < 0 ||
-        !Number.isInteger(result.count) ||
-        Number(result.count) < 0
-      )
-        throw new Error('Invalid pagination')
-      if (page === 1) {
-        pages = Number(result.pages)
-        count = Number(result.count)
-      } else if (pages !== result.pages || count !== result.count)
-        throw new Error('Changing pagination')
-      pagesRead++
-      rawRows.push(...result.data)
-      if (result.data.length === 0 && count !== 0)
-        throw new Error('Empty non-final page')
-    } catch (error) {
-      if (pagesRead === 0) throw error
-      completeFetch = false
-      issues.push({ code: 'INCOMPLETE_PAGINATION' })
-      break
-    }
-  }
-  if (count !== rawRows.length) {
-    completeFetch = false
-    issues.push({ code: 'COUNT_MISMATCH' })
-  }
+  const page = await fetchEastmoneyPages(
+    fetcher,
+    eastmoneyUrl,
+    {
+      reportName: 'RPT_SHAREBONUS_DET',
+      columns: 'ALL',
+      source: 'WEB',
+      client: 'WEB',
+      filter: `(SECUCODE="${code}.${market}")`,
+    },
+    now,
+  )
+  const { rows: rawRows, issues, pagesRead, fetchedRecords, fetchedAt } = page
+  let { completeFetch } = page
   const records: EastmoneyDividend[] = [],
     seen = new Set<string>()
   for (const raw of rawRows) {
@@ -169,7 +128,8 @@ export async function fetchDividends(
       if (seen.has(row.recordId)) continue
       seen.add(row.recordId)
       records.push(row)
-    } catch {
+    } catch (error) {
+      if (!(error instanceof SourceDataError)) throw error
       issues.push({ code: 'INVALID_RECORD_IDENTITY' })
       completeFetch = false
     }
@@ -181,9 +141,9 @@ export async function fetchDividends(
   }
   return {
     records,
-    fetchedAt: now.toISOString(),
+    fetchedAt,
     pagesRead,
-    fetchedRecords: rawRows.length,
+    fetchedRecords,
     completeFetch,
     issues,
   }
