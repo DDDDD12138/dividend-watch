@@ -15,7 +15,7 @@ A 股股息观察项目，用于跟踪自选公司的历史分红，并根据统
 ## 开发环境
 
 - Node.js 最低版本 22.12.0；`.nvmrc` 指定开发基准版本 24.11.1，不作为兼容上限。目前已在 Node.js 24.11.1 上验证。
-- pnpm 最低版本 12；`packageManager` 指定统一开发版本 12.11.2。启用自动版本管理时，pnpm 仍会使用该指定版本。
+- pnpm 最低版本 12；`packageManager` 指定统一开发版本 12.18.0。启用自动版本管理时，pnpm 仍会使用该指定版本。
 - React + TypeScript 6 + Vite，原生 CSS。
 
 在 WSL 项目目录中运行命令。已安装 nvm 时，可以执行 `nvm install` 和 `nvm use`，它们会读取 `.nvmrc`。
