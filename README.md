@@ -16,9 +16,11 @@ A 股股息观察项目，用于跟踪自选公司的历史分红，并根据统
 
 - Node.js 最低版本 22.12.0；`.nvmrc` 指定开发基准版本 24.11.1，不作为兼容上限。目前已在 Node.js 24.11.1 上验证。
 - pnpm 最低版本 12；`packageManager` 指定统一开发版本 12.18.0。启用自动版本管理时，pnpm 仍会使用该指定版本。
-- React + TypeScript 6 + Vite，原生 CSS。
+- React + TypeScript 7 + Vite，原生 CSS。
 
 在 WSL 项目目录中运行命令。已安装 nvm 时，可以执行 `nvm install` 和 `nvm use`，它们会读取 `.nvmrc`。
+
+VS Code 用户请安装工作区推荐的 [TypeScript 7 扩展](https://marketplace.visualstudio.com/items?itemName=TypeScriptTeam.native-preview)，执行 `TypeScript: Enable TypeScript 7`，并将 `js/ts.tsdk.path` 设置为 `./node_modules/typescript`，让编辑器与命令行使用项目中的同一版本。WSL 下请将扩展安装在对应的远程环境中。
 
 首次安装及启动：
 
@@ -76,7 +78,7 @@ pnpm icons:generate
 - `.editorconfig`：UTF-8、两空格缩进、LF 换行、文件末尾换行；Markdown 保留行尾空格以支持显式换行。
 - `.prettierrc`：JavaScript / TypeScript 使用单引号、不加分号，其余采用 Prettier 默认规则。
 - `.prettierignore`：排除构建产物、覆盖率目录和 pnpm 锁文件。
-- `.oxlintrc.json`：沿用模板的 Oxlint 配置。暂不启用 `oxlint-tsgolint`，类型检查由 TypeScript 6 的 `tsc` 负责。
+- `.oxlintrc.json`：沿用模板的 Oxlint 配置。暂不启用 `oxlint-tsgolint`，类型检查由 TypeScript 7 的 `tsc` 负责。
 - `tsconfig.app.json`、`tsconfig.node.json`：均显式开启 `strict`。`noEmit` 禁止输出编译代码，增量检查缓存位于 `node_modules/.tmp/`。
 
 ## 当前目录
