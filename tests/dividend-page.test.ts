@@ -83,6 +83,60 @@ beforeEach(() => {
   vi.mocked(useResource).mockReset().mockReturnValue({ loading: false })
 })
 describe('independent dividend detail views', () => {
+  it('shows the quote basis once above the chart values without duplicating it in year records', async () => {
+    const input = await fetchDividends(fixtureFetcher, bankCompanies[0], now)
+    vi.mocked(useDividends).mockReturnValue({
+      loading: false,
+      response: {
+        data: buildHistory(bankCompanies[0], input, now),
+        meta: annual.response!.meta,
+      },
+    })
+    vi.mocked(useResource).mockImplementation((path) =>
+      path?.startsWith('/api/quotes?')
+        ? {
+            loading: false,
+            response: {
+              data: {
+                ...bankCompanies[0],
+                price: '10',
+                quoteTime: '2026-11-13T15:00:00+08:00',
+                currency: 'CNY',
+                issues: [],
+              },
+              meta: annual.response!.meta,
+            },
+          }
+        : { loading: false },
+    )
+    const html = renderPage()
+    expect(html).toContain('按当前价 ¥10.00 折算')
+    expect(html).toMatch(/行情时间 11[-/]13 15:00/)
+    expect(html).not.toContain('year-yield')
+    expect(html).not.toContain('chart-metric-description')
+    expect(html).toContain('税前已实施每股分红 ÷ 当前价')
+    const currentYear = html.match(
+      /<details[^>]*id="year-2026"[\s\S]*?<\/details>/,
+    )?.[0]
+    expect(currentYear).toBeDefined()
+    expect(currentYear).not.toContain('year-yield')
+    expect(
+      vi
+        .mocked(useResource)
+        .mock.calls.filter(([path]) => path?.startsWith('/api/quotes?')),
+    ).toHaveLength(1)
+  })
+  it.each([{ loading: true }, { loading: false, error: '分红来源暂不可用' }])(
+    'retains the metric structure before dividend data is available: %j',
+    (resource) => {
+      vi.mocked(useDividends).mockReturnValue(resource)
+      const html = renderPage()
+      expect(html).toContain('chart-metrics')
+      expect(html).toContain('chart-metric-values')
+      expect(html).toContain('图表观察重点')
+      expect(html).toContain('参考股息率')
+    },
+  )
   it('separates share information from invalid share data without blocking cash calculations', async () => {
     const input = await fetchDividends(fixtureFetcher, bankCompanies[0], now)
     const record = input.records.find(
@@ -159,7 +213,7 @@ describe('independent dividend detail views', () => {
         onYear: vi.fn(),
       }),
     )
-    expect(html).toContain('年度统计更新失败</p>')
+    expect(html).toContain('role="status">更新失败</span>')
     expect(html).not.toContain('当前显示')
   })
   it.each([{ loading: true }, { loading: false, error: '分红来源暂不可用' }])(
@@ -206,7 +260,7 @@ describe('independent dividend detail views', () => {
     )
     expect(html).toContain('归母净利润')
     expect(html).toContain('现金分红比例')
-    expect(html).not.toContain('年度统计更新失败')
+    expect(html).not.toContain('更新失败')
   })
   it('keeps standalone annual figures while omitting unavailable per-share enrichment and navigation', () => {
     const html = renderToStaticMarkup(

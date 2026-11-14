@@ -1,5 +1,9 @@
-import { useCallback, useMemo, useState } from 'react'
-import type { AnnualDividend, EastmoneyDividend } from '../../../shared/api'
+import { useCallback, useMemo, useState, type ReactNode } from 'react'
+import type {
+  AnnualDividend,
+  EastmoneyDividend,
+  Quote,
+} from '../../../shared/api'
 import {
   cash,
   chartRecords,
@@ -9,14 +13,23 @@ import {
   type ChartLayer,
 } from './model'
 import { ChartTooltip } from './ChartTooltip'
-import { useChartSize } from './chartHooks'
+import {
+  CHART_BOTTOM_PADDING,
+  CHART_YEAR_LABEL_OFFSET,
+  useChartSize,
+} from './chartHooks'
 import { useChartInteraction } from './useChartInteraction'
 import { layoutAmountLabels } from './amountLabels'
 import { dividendAxis } from './axis'
 import { PreListingBand } from './PreListingBand'
 import { isPreListing } from './listing'
+import { ChartMetricRegion, type ChartMetricInfo } from './ChartMetricRegion'
+import { annualReferenceYield } from './referenceYield'
 
 interface ChartProps {
+  quote: Quote | null
+  metric: ChartMetricInfo
+  emptyContent: ReactNode
   listingDate?: string | null
   emphasis: ChartLayer | null
   groups: YearGroup[]
@@ -28,19 +41,20 @@ export function AnnualChart(props: ChartProps) {
   const { size, measure } = useChartSize()
   const scope = props.groups.map((group) => group.year).join(',')
   return (
-    <div className="annual-chart" ref={measure}>
-      {size.width > 0 && size.height > 0 && (
-        <ChartPlot
-          key={scope}
-          {...props}
-          width={size.width}
-          canvasHeight={size.height}
-        />
-      )}
-    </div>
+    <ChartPlot
+      key={scope}
+      {...props}
+      width={size.width}
+      canvasHeight={size.height}
+      measure={measure}
+    />
   )
 }
 function ChartPlot({
+  quote,
+  metric,
+  emptyContent,
+  measure,
   listingDate,
   emphasis,
   groups,
@@ -49,11 +63,15 @@ function ChartPlot({
   onRecord,
   width,
   canvasHeight,
-}: ChartProps & { width: number; canvasHeight: number }) {
+}: ChartProps & {
+  width: number
+  canvasHeight: number
+  measure: ReturnType<typeof useChartSize>['measure']
+}) {
   const { root, active, dismiss, interactionProps, getTargetProps } =
     useChartInteraction(width, canvasHeight, groups, ['year', 'record'])
   const [left, setLeft] = useState(0)
-  const bottom = canvasHeight - 52,
+  const bottom = canvasHeight - CHART_BOTTOM_PADDING,
     plotTop = 24,
     plotHeight = bottom - plotTop
   const step = Math.max(1, width - left - 12) / Math.max(groups.length, 1)
@@ -74,11 +92,16 @@ function ChartPlot({
       groups.map((group) => dividendAmount(group.summary?.implementedTotal)),
     [groups],
   )
+  const yields = useMemo(
+    () => groups.map((group) => annualReferenceYield(group.summary, quote)),
+    [groups, quote],
+  )
   const [amountLabels, setAmountLabels] = useState<
     {
       x: number
       visible: boolean
       width: number
+      metricWidth: number
       top: number
       height: number
     }[]
@@ -103,14 +126,23 @@ function ChartPlot({
           '.chart-amount-measure',
         )
         const boxes = amountTexts.map((_, index) => nodes[index].getBBox())
+        const metricNodes = svg!.querySelectorAll<SVGTextElement>(
+          '.chart-yield-measure',
+        )
+        const metricWidths = yields.map((_, index) =>
+          Math.max(32, metricNodes[index].getBBox().width + 4),
+        )
         const layout = layoutAmountLabels(
-          boxes.map((box) => box.width + 4),
+          boxes.map((box, index) =>
+            Math.max(box.width + 4, metricWidths[index]),
+          ),
           nextLeft,
           width - 12,
         )
         const next = layout.map((label, index) => ({
           ...label,
           width: boxes[index].width + 4,
+          metricWidth: metricWidths[index],
           top: boxes[index].y - 2,
           height: boxes[index].height + 4,
         }))
@@ -122,6 +154,7 @@ function ChartPlot({
               label.x === other.x &&
               label.visible === other.visible &&
               label.width === other.width &&
+              label.metricWidth === other.metricWidth &&
               label.top === other.top &&
               label.height === other.height
             )
@@ -138,8 +171,14 @@ function ChartPlot({
         document.fonts.removeEventListener('loadingdone', measure)
       }
     },
-    [amountTexts, axis, width],
+    [amountTexts, yields, axis, width],
   )
+  function yearText(group: YearGroup, index: number) {
+    const amount = group.summary?.implementedTotal
+    const change = yearChange(group, summaries)
+    const value = yields[index]
+    return `${group.year} 财年\n已实施合计：${cash(amount)} / 股${amount != null ? `\n实施记录：${group.summary!.implementedRecordCount} 条` : ''}${change ? `\n同比：${change}` : ''}\n折算股价：${quote?.price ? `¥${Number(quote.price).toFixed(2)}` : '—'}\n参考股息率：${value.label}${value.reason ? `\n${value.reason}` : ''}\n未作送转调整`
+  }
   return (
     <div
       className="chart-interaction"
@@ -147,190 +186,269 @@ function ChartPlot({
       data-mode={active?.mode ?? emphasis ?? undefined}
       {...interactionProps}
     >
-      <svg
-        ref={measureLabels}
-        viewBox={`0 0 ${width} ${canvasHeight}`}
-        height={canvasHeight}
-        role="group"
-        aria-label="年度已实施合计与各次现金分红，共用金额刻度，单位为元每股，税前"
-      >
-        <g visibility="hidden" aria-hidden="true" pointerEvents="none">
-          {axis.ticks.map((tick) => (
-            <text key={tick.label} className="chart-axis-measure">
-              {tick.label}
-            </text>
-          ))}
-          {amountTexts.map((text, index) => (
-            <text
-              key={index}
-              className="chart-amount-measure"
-              x={0}
-              y={0}
-              textAnchor="middle"
+      <div className="annual-chart" ref={measure}>
+        {!groups.length ? (
+          <div className="chart-empty">{emptyContent}</div>
+        ) : (
+          width > 0 &&
+          canvasHeight > 0 && (
+            <svg
+              ref={measureLabels}
+              viewBox={`0 0 ${width} ${canvasHeight}`}
+              height={canvasHeight}
+              role="group"
+              aria-label="年度已实施合计与各次现金分红，共用金额刻度，单位为元每股，税前"
             >
-              {text}
-            </text>
-          ))}
-        </g>
-        <text className="chart-axis-label" x={left} y={13}>
-          元 / 股
-        </text>
-        {axis.ticks.map((tick) => {
-          const y = bottom - (plotHeight * tick.value) / ceiling
-          return (
-            <g key={tick.label} className="chart-axis">
-              <line x1={left} x2={width - 12} y1={y} y2={y} />
-              <text x={left - 8} y={y + 4} textAnchor="end">
-                {tick.label}
-              </text>
-            </g>
-          )
-        })}
-        <PreListingBand
-          x={left}
-          y={plotTop}
-          listingDate={listingDate}
-          years={groups.map((group) => group.year)}
-          step={step}
-          height={plotHeight}
-        />
-        {groups.map((group, index) => {
-          const x = left + step * (index + 0.5),
-            amount = group.summary?.implementedTotal
-          const showData = !(
-            isPreListing(group.year, listingDate) &&
-            amount == null &&
-            !group.records.length
-          )
-          const label = amountLabels[index]
-          const labelY =
-            (amount == null ? bottom : bottom - height(amount)) - 10
-          const children = chartRecords(group)
-          const change = yearChange(group, summaries)
-          const text = `${group.year} 财年\n已实施合计：${cash(amount)} / 股${amount != null ? `\n实施记录：${group.summary!.implementedRecordCount} 条` : ''}${change ? `\n同比：${change}` : ''}`
-          return (
-            <g key={group.year}>
-              <g
-                className={showData ? 'chart-year-target' : undefined}
-                {...(showData
-                  ? getTargetProps({
-                      mode: 'year',
-                      text,
-                      onActivate: group.records.length
-                        ? () => onYear(group.year)
-                        : undefined,
-                    })
-                  : {})}
-              >
-                {amount != null && (
-                  <rect
-                    className="chart-hit"
-                    x={x - barWidth / 2}
-                    y={bottom - Math.max(height(amount), 2)}
-                    width={barWidth}
-                    height={Math.max(height(amount), 2)}
-                  />
-                )}
-                {showData && label?.visible && (
-                  <rect
-                    className="chart-hit"
-                    x={label.x - label.width / 2}
-                    y={labelY + label.top}
-                    width={label.width}
-                    height={label.height}
-                  />
-                )}
-                {showData && visible(index, yearStride) && (
-                  <rect
-                    className="chart-hit"
-                    x={x - barWidth / 2}
-                    y={bottom + 4}
-                    width={barWidth}
-                    height={32}
-                  />
-                )}
-                <g className="chart-year-visual">
-                  {amount != null && (
-                    <rect
-                      className="chart-total"
-                      x={x - barWidth / 2}
-                      y={bottom - height(amount)}
-                      width={barWidth}
-                      height={height(amount)}
-                      rx={3}
-                    />
-                  )}
-                  {showData && label?.visible && (
-                    <text
-                      className="chart-amount"
-                      x={label.x}
-                      y={labelY}
-                      textAnchor="middle"
-                    >
-                      {amountTexts[index]}
-                    </text>
-                  )}
-                </g>
-                {visible(index, yearStride) && (
+              <g visibility="hidden" aria-hidden="true" pointerEvents="none">
+                {axis.ticks.map((tick) => (
+                  <text key={tick.label} className="chart-axis-measure">
+                    {tick.label}
+                  </text>
+                ))}
+                {yields.map((value, index) => (
                   <text
-                    className="chart-year-label"
-                    x={x}
-                    y={bottom + 25}
+                    key={`yield-${index}`}
+                    className="allocation-ratio-value chart-yield-measure"
+                  >
+                    {value.label}
+                  </text>
+                ))}
+                {amountTexts.map((text, index) => (
+                  <text
+                    key={index}
+                    className="chart-amount-measure"
+                    x={0}
+                    y={0}
+                    textAnchor="middle"
+                  >
+                    {text}
+                  </text>
+                ))}
+              </g>
+              <text className="chart-axis-label" x={left} y={13}>
+                元 / 股
+              </text>
+              {axis.ticks.map((tick) => {
+                const y = bottom - (plotHeight * tick.value) / ceiling
+                return (
+                  <g key={tick.label} className="chart-axis">
+                    <line x1={left} x2={width - 12} y1={y} y2={y} />
+                    <text x={left - 8} y={y + 4} textAnchor="end">
+                      {tick.label}
+                    </text>
+                  </g>
+                )
+              })}
+              <PreListingBand
+                x={left}
+                y={plotTop}
+                listingDate={listingDate}
+                years={groups.map((group) => group.year)}
+                step={step}
+                height={plotHeight}
+              />
+              {groups.map((group, index) => {
+                const x = left + step * (index + 0.5),
+                  amount = group.summary?.implementedTotal
+                const showData = !(
+                  isPreListing(group.year, listingDate) &&
+                  amount == null &&
+                  !group.records.length
+                )
+                const label = amountLabels[index]
+                const labelY =
+                  (amount == null ? bottom : bottom - height(amount)) - 10
+                const children = chartRecords(group)
+                const text = yearText(group, index)
+                return (
+                  <g key={group.year}>
+                    <g
+                      className={showData ? 'chart-year-target' : undefined}
+                      {...(showData
+                        ? getTargetProps({
+                            mode: 'year',
+                            text,
+                            onActivate: group.records.length
+                              ? () => onYear(group.year)
+                              : undefined,
+                          })
+                        : {})}
+                    >
+                      {amount != null && (
+                        <rect
+                          className="chart-hit"
+                          x={x - barWidth / 2}
+                          y={bottom - Math.max(height(amount), 2)}
+                          width={barWidth}
+                          height={Math.max(height(amount), 2)}
+                        />
+                      )}
+                      {showData && label?.visible && (
+                        <rect
+                          className="chart-hit"
+                          x={label.x - label.width / 2}
+                          y={labelY + label.top}
+                          width={label.width}
+                          height={label.height}
+                        />
+                      )}
+                      {showData && visible(index, yearStride) && (
+                        <rect
+                          className="chart-hit"
+                          x={x - barWidth / 2}
+                          y={bottom + 4}
+                          width={barWidth}
+                          height={32}
+                        />
+                      )}
+                      <g className="chart-year-visual">
+                        {amount != null && (
+                          <rect
+                            className="chart-total"
+                            x={x - barWidth / 2}
+                            y={bottom - height(amount)}
+                            width={barWidth}
+                            height={height(amount)}
+                            rx={3}
+                          />
+                        )}
+                        {showData && label?.visible && (
+                          <text
+                            className="chart-amount"
+                            x={label.x}
+                            y={labelY}
+                            textAnchor="middle"
+                          >
+                            {amountTexts[index]}
+                          </text>
+                        )}
+                      </g>
+                      {visible(index, yearStride) && (
+                        <text
+                          className="chart-year-label"
+                          x={x}
+                          y={bottom + CHART_YEAR_LABEL_OFFSET}
+                          textAnchor="middle"
+                        >
+                          {group.year}
+                        </text>
+                      )}
+                    </g>
+                    {children.map((record, childIndex) => {
+                      const gap = Math.min(
+                        4,
+                        barWidth * 0.05,
+                        barWidth / (children.length * 2),
+                      )
+                      const childWidth = Math.min(
+                        24,
+                        (barWidth * 0.9 - (children.length - 1) * gap) /
+                          children.length,
+                      )
+                      const clusterWidth =
+                        children.length * childWidth +
+                        (children.length - 1) * gap
+                      const childX =
+                        x - clusterWidth / 2 + childIndex * (childWidth + gap)
+                      const childHeight = height(record.cashPerShare!)
+                      const tip = `${group.year} 财年 · 报告期 ${record.reportDate ?? '未知'}\n税前每股：${cash(record.cashPerShare)}\n除权除息日：${record.exDate ?? '未提供'}\n来源进度：${record.progress}`
+                      return (
+                        <g
+                          key={record.recordId}
+                          className="chart-record-target"
+                          {...getTargetProps({
+                            mode: 'record',
+                            text: tip,
+                            onActivate: () => onRecord(record),
+                          })}
+                        >
+                          <rect
+                            className="chart-record"
+                            x={childX}
+                            y={bottom - childHeight}
+                            width={childWidth}
+                            height={childHeight}
+                            rx={2}
+                          />
+                          <rect
+                            className="chart-hit"
+                            x={childX}
+                            y={bottom - Math.max(childHeight, 6)}
+                            width={childWidth}
+                            height={Math.max(childHeight, 6)}
+                          />
+                        </g>
+                      )
+                    })}
+                  </g>
+                )
+              })}
+            </svg>
+          )
+        )}
+      </div>
+      <ChartMetricRegion {...metric}>
+        <svg
+          viewBox={width > 0 ? `0 0 ${width} 64` : undefined}
+          height={64}
+          role="group"
+          aria-label="各财年按当前价折算的参考股息率"
+        >
+          {width > 0 &&
+            groups.map((group, index) => {
+              const label = amountLabels[index]
+              if (!label?.visible) return null
+              const showData = !(
+                isPreListing(group.year, listingDate) &&
+                group.summary?.implementedTotal == null &&
+                !group.records.length
+              )
+              return (
+                <g
+                  key={group.year}
+                  className={showData ? 'chart-year-target' : undefined}
+                  {...(showData
+                    ? getTargetProps({
+                        mode: 'year',
+                        text: yearText(group, index),
+                        onActivate: group.records.length
+                          ? () => onYear(group.year)
+                          : undefined,
+                      })
+                    : {})}
+                >
+                  {showData && (
+                    <>
+                      <rect
+                        className="chart-hit"
+                        x={label.x - label.metricWidth / 2}
+                        y={6}
+                        width={label.metricWidth}
+                        height={52}
+                      />
+                      <text
+                        className="allocation-ratio-value"
+                        x={label.x}
+                        y={26}
+                        textAnchor="middle"
+                      >
+                        {yields[index].label}
+                      </text>
+                    </>
+                  )}
+                  <text
+                    className="allocation-ratio-year"
+                    x={label.x}
+                    y={50}
                     textAnchor="middle"
                   >
                     {group.year}
                   </text>
-                )}
-              </g>
-              {children.map((record, childIndex) => {
-                const gap = Math.min(
-                  4,
-                  barWidth * 0.05,
-                  barWidth / (children.length * 2),
-                )
-                const childWidth = Math.min(
-                  24,
-                  (barWidth * 0.9 - (children.length - 1) * gap) /
-                    children.length,
-                )
-                const clusterWidth =
-                  children.length * childWidth + (children.length - 1) * gap
-                const childX =
-                  x - clusterWidth / 2 + childIndex * (childWidth + gap)
-                const childHeight = height(record.cashPerShare!)
-                const tip = `${group.year} 财年 · 报告期 ${record.reportDate ?? '未知'}\n税前每股：${cash(record.cashPerShare)}\n除权除息日：${record.exDate ?? '未提供'}\n来源进度：${record.progress}`
-                return (
-                  <g
-                    key={record.recordId}
-                    className="chart-record-target"
-                    {...getTargetProps({
-                      mode: 'record',
-                      text: tip,
-                      onActivate: () => onRecord(record),
-                    })}
-                  >
-                    <rect
-                      className="chart-record"
-                      x={childX}
-                      y={bottom - childHeight}
-                      width={childWidth}
-                      height={childHeight}
-                      rx={2}
-                    />
-                    <rect
-                      className="chart-hit"
-                      x={childX}
-                      y={bottom - Math.max(childHeight, 6)}
-                      width={childWidth}
-                      height={Math.max(childHeight, 6)}
-                    />
-                  </g>
-                )
-              })}
-            </g>
-          )
-        })}
-      </svg>
+                </g>
+              )
+            })}
+        </svg>
+      </ChartMetricRegion>
       {active && <ChartTooltip selection={active} onDismiss={dismiss} />}
     </div>
   )

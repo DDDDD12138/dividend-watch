@@ -1,5 +1,8 @@
 import { useCallback, useState } from 'react'
 
+export const CHART_BOTTOM_PADDING = 42
+export const CHART_YEAR_LABEL_OFFSET = 25
+
 export function useChartSize() {
   const [size, setSize] = useState({ width: 0, height: 0 })
   const measure = useCallback((node: HTMLDivElement | null) => {

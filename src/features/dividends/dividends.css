@@ -585,20 +585,21 @@
 .allocation-target[role='button'] {
   cursor: pointer;
 }
-.allocation-ratios {
+.chart-metrics {
   border-top: 1px solid var(--color-border);
   padding-top: var(--space-4);
   margin-top: var(--space-3);
+  font-variant-numeric: tabular-nums;
 }
 .allocation-ratio-heading {
   margin: 0;
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-semibold);
 }
-.allocation-ratios svg {
+.chart-metric-values svg {
   display: block;
   width: 100%;
-  margin-top: var(--space-2);
+  height: 64px;
 }
 .allocation-ratio-value {
   fill: var(--color-text);
@@ -607,10 +608,6 @@
 }
 .allocation-ratio-year {
   fill: var(--color-text-muted);
-  font-size: var(--font-size-xs);
-}
-.allocation-notice {
-  margin: var(--space-4) 0 0;
   font-size: var(--font-size-xs);
 }
 .allocation-dialog {
@@ -761,4 +758,34 @@
   .allocation-cash-label {
     transition: none;
   }
+}
+
+/* Both views share a compact heading and the same 64px value row. */
+.chart-metric-heading {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  height: 20px;
+  line-height: 20px;
+  white-space: nowrap;
+}
+.chart-metric-heading h3,
+.chart-metric-status {
+  flex-shrink: 0;
+}
+.chart-metric-basis {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+}
+.chart-metric-status {
+  margin-left: auto;
+  font-size: var(--font-size-xs);
+  color: var(--color-danger);
+}
+.chart-metric-values {
+  height: 64px;
+  margin-top: var(--space-2);
 }

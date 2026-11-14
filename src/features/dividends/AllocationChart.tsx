@@ -1,10 +1,15 @@
 import { useCallback, useId, useMemo, useState, type ReactNode } from 'react'
 import { ChartTooltip } from './ChartTooltip'
-import { useChartSize } from './chartHooks'
+import {
+  CHART_BOTTOM_PADDING,
+  CHART_YEAR_LABEL_OFFSET,
+  useChartSize,
+} from './chartHooks'
 import { useChartInteraction } from './useChartInteraction'
 import { layoutAmountLabels } from './amountLabels'
 import { PreListingBand } from './PreListingBand'
 import { isPreListing } from './listing'
+import { ChartMetricRegion, type ChartMetricInfo } from './ChartMetricRegion'
 import {
   allocationAmount,
   allocationChartAmount,
@@ -14,6 +19,7 @@ import {
 
 export type AllocationLayer = 'profit' | 'cash'
 interface Props {
+  status?: ChartMetricInfo['status']
   listingDate?: string | null
   points: AllocationPoint[]
   emphasis: AllocationLayer | null
@@ -33,6 +39,7 @@ export function AllocationChart(props: Props) {
   )
 }
 function AllocationPlot({
+  status,
   listingDate,
   points,
   emphasis,
@@ -123,7 +130,7 @@ function AllocationPlot({
   const { left } = labels,
     right = width - 12,
     top = 30,
-    bottom = canvasHeight - 42
+    bottom = canvasHeight - CHART_BOTTOM_PADDING
   const step = Math.max(1, right - left) / Math.max(1, points.length)
   const barWidth = Math.min(84, step * 0.68)
   const x = (index: number) => left + step * (index + 0.5)
@@ -384,14 +391,14 @@ function AllocationPlot({
                           x={x(index) - step / 2 + 2}
                           y={bottom + 4}
                           width={step - 4}
-                          height={30}
+                          height={32}
                         />
                       </>
                     )}
                     <text
                       className="chart-year-label"
                       x={x(index)}
-                      y={bottom + 26}
+                      y={bottom + CHART_YEAR_LABEL_OFFSET}
                       textAnchor="middle"
                     >
                       {point.year}
@@ -403,8 +410,7 @@ function AllocationPlot({
           )
         )}
       </div>
-      <div className="allocation-ratios" aria-hidden={points.length === 0}>
-        <h3 className="allocation-ratio-heading">现金分红比例</h3>
+      <ChartMetricRegion title="现金分红比例" status={status}>
         <svg
           viewBox={width > 0 ? `0 0 ${width} 64` : undefined}
           height={64}
@@ -452,7 +458,7 @@ function AllocationPlot({
               )
             })}
         </svg>
-      </div>
+      </ChartMetricRegion>
       {active && <ChartTooltip selection={active} onDismiss={dismiss} />}
     </div>
   )

@@ -14,6 +14,7 @@ import type {
   AllocationHistory,
   CompanyProfile,
   EastmoneyDividend,
+  Quote,
 } from '../../../shared/api'
 import { useDividends, useResource } from '../../data/api'
 import { timeLabel } from '../../lib/format'
@@ -31,6 +32,7 @@ import {
   type ChartLayer,
   type YearGroup,
 } from './model'
+import { requestDividendQuote } from './referenceYield'
 import './dividends.css'
 
 export function DividendsPage() {
@@ -52,6 +54,12 @@ function CompanyDividends({ code }: { code: string }) {
     `/api/companies/${code}/profile`,
     revision,
   )
+  const quoteResource = useResource<Quote>(
+    `/api/quotes?codes=${code}`,
+    revision,
+    requestDividendQuote,
+  )
+  const quote = quoteResource.response?.data ?? null
   const listingDate = profile.response?.data.listingDate
   const [range, setRange] = useState<HistoryRange>('5')
   const [chartView, setChartView] = useState<'dividend' | 'allocation'>(
@@ -63,7 +71,9 @@ function CompanyDividends({ code }: { code: string }) {
     revision,
   )
   const refreshing =
-    chartView === 'dividend' ? resource.loading : allocations.loading
+    chartView === 'dividend'
+      ? resource.loading || quoteResource.loading
+      : allocations.loading
   const company = history?.company ?? allocations.response?.data.company
   const [emphasis, setEmphasis] = useState<ChartLayer | null>(null)
   const [allocationEmphasis, setAllocationEmphasis] =
@@ -219,19 +229,7 @@ function CompanyDividends({ code }: { code: string }) {
             emphasis={allocationEmphasis}
             onEmphasis={setAllocationEmphasis}
           />
-        ) : !history ? (
-          <div className="annual-chart">
-            <div className="chart-empty">
-              {resource.loading ? (
-                <p role="status">正在加载分红记录…</p>
-              ) : (
-                <p className="history-warning" role="alert">
-                  分红记录加载失败。{resource.error}
-                </p>
-              )}
-            </div>
-          </div>
-        ) : view!.chart.length ? (
+        ) : (
           <>
             <div className="history-chart-toolbar">
               <ChartLegend
@@ -242,24 +240,53 @@ function CompanyDividends({ code }: { code: string }) {
                 ]}
                 value={emphasis}
                 onChange={setEmphasis}
+                disabled={!view?.chart.length}
               />
-              <span className="history-range-dates">
-                {view!.chart[0].year} — {view!.chart.at(-1)!.year}
-              </span>
+              {!!view?.chart.length && (
+                <span className="history-range-dates">
+                  {view.chart[0].year} — {view.chart.at(-1)!.year}
+                </span>
+              )}
             </div>
             <AnnualChart
+              quote={quote}
+              metric={{
+                title: '参考股息率',
+                basis: quote?.price
+                  ? `按当前价 ¥${Number(quote.price).toFixed(2)} 折算`
+                  : '按当前价折算',
+                hint: [
+                  quote?.quoteTime
+                    ? `行情时间 ${timeLabel(quote.quoteTime)}`
+                    : null,
+                  '税前已实施每股分红 ÷ 当前价，未作送转调整',
+                ]
+                  .filter(Boolean)
+                  .join('；'),
+                status:
+                  !quoteResource.loading && quoteResource.error
+                    ? quote
+                      ? '更新失败'
+                      : '行情不可用'
+                    : undefined,
+              }}
+              emptyContent={
+                !history && resource.loading ? (
+                  <p role="status">正在加载分红记录…</p>
+                ) : !history ? (
+                  <p className="history-warning">分红记录加载失败。</p>
+                ) : (
+                  <p>暂无已结束财年的分红数据，已公布记录见下方。</p>
+                )
+              }
               listingDate={listingDate}
               emphasis={emphasis}
-              groups={view!.chart}
-              summaries={history.annualSummaries}
+              groups={view?.chart ?? []}
+              summaries={history?.annualSummaries ?? []}
               onYear={focusYear}
               onRecord={openRecord}
             />
           </>
-        ) : (
-          <p className="history-muted">
-            暂无已结束财年的分红数据，已公布记录见下方。
-          </p>
         )}
       </section>
       {!profile.loading && (profile.error || listingDate === null) && (
@@ -271,7 +298,7 @@ function CompanyDividends({ code }: { code: string }) {
             : '来源未提供上市日期'}
         </p>
       )}
-      {resource.error && (history || chartView === 'allocation') && (
+      {resource.error && (
         <p className="history-warning" role="alert">
           {resource.response
             ? '分红记录更新失败'
@@ -283,7 +310,7 @@ function CompanyDividends({ code }: { code: string }) {
           部分分红明细未能获取，每股分红合计暂不可用。
         </p>
       )}
-      {!history && chartView === 'allocation' && resource.loading && (
+      {!history && resource.loading && (
         <p className="history-muted" role="status">
           分红明细加载中…
         </p>

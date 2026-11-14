@@ -30,10 +30,7 @@ export function AllocationPanel({
     [data, range],
   )
   const [selected, setSelected] = useState<AllocationSelection | null>(null)
-  const notice =
-    data && !data.coverage.completeFetch
-      ? '年度统计不完整，缺失年份保持未知'
-      : null
+  const notice = data && !data.coverage.completeFetch ? '统计不完整' : null
   return (
     <>
       <div className="history-chart-toolbar">
@@ -54,6 +51,11 @@ export function AllocationPanel({
         )}
       </div>
       <AllocationChart
+        status={
+          resource.error && resource.response
+            ? '更新失败'
+            : (notice ?? undefined)
+        }
         listingDate={listingDate}
         points={points}
         emphasis={emphasis}
@@ -75,16 +77,6 @@ export function AllocationPanel({
           })
         }
       />
-      {resource.error && resource.response && (
-        <p className="allocation-notice history-warning" role="alert">
-          年度统计更新失败
-        </p>
-      )}
-      {notice && (
-        <p className="allocation-notice history-warning" role="status">
-          {notice}
-        </p>
-      )}
       {selected && (
         <AllocationDialog
           selection={selected}
