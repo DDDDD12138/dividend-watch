@@ -23,6 +23,9 @@
   --color-dividend-preview: #9bbdaa;
   --color-dividend-total: #adbfad;
   --color-dividend-record: #658771;
+  --color-dividend-transfer-bg: #c49a53;
+  --color-dividend-transfer-line: #b48b47;
+  --color-dividend-transfer-text: #9e783e;
 
   /* 状态色表达操作结果，不用于推断股价涨跌。 */
   --color-success: #286e57;

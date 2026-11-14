@@ -789,3 +789,30 @@
   height: 64px;
   margin-top: var(--space-2);
 }
+
+.chart-transfer {
+  stroke: none;
+}
+.chart-transfer-background {
+  fill: var(--color-dividend-transfer-bg);
+}
+.chart-transfer-hatch {
+  fill: none;
+  stroke: var(--color-dividend-transfer-line);
+  stroke-width: 1;
+}
+.chart-transfer-target[role='button'] {
+  cursor: pointer;
+}
+.chart-amount-on-transfer {
+  paint-order: stroke;
+  stroke: var(--color-surface);
+  stroke-width: 3px;
+  stroke-linejoin: round;
+}
+.chart-transfer-label,
+.chart-transfer-measure {
+  fill: var(--color-dividend-transfer-text);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-normal);
+}

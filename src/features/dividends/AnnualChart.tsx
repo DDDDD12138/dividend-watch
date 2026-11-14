@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState, type ReactNode } from 'react'
+import { useCallback, useId, useMemo, useState, type ReactNode } from 'react'
 import type {
   AnnualDividend,
   EastmoneyDividend,
@@ -19,12 +19,13 @@ import {
   useChartSize,
 } from './chartHooks'
 import { useChartInteraction } from './useChartInteraction'
-import { layoutAmountLabels } from './amountLabels'
+import { layoutAmountLabels, layoutEventLabels } from './amountLabels'
 import { dividendAxis } from './axis'
 import { PreListingBand } from './PreListingBand'
 import { isPreListing } from './listing'
 import { ChartMetricRegion, type ChartMetricInfo } from './ChartMetricRegion'
 import { annualReferenceYield } from './referenceYield'
+import { annualShareDistribution } from './shareDistribution'
 
 interface ChartProps {
   quote: Quote | null
@@ -70,6 +71,9 @@ function ChartPlot({
 }) {
   const { root, active, dismiss, interactionProps, getTargetProps } =
     useChartInteraction(width, canvasHeight, groups, ['year', 'record'])
+  const transferPatternId = useId()
+  const transfers = useMemo(() => groups.map(annualShareDistribution), [groups])
+  const hasTransfers = transfers.some(Boolean)
   const [left, setLeft] = useState(0)
   const bottom = canvasHeight - CHART_BOTTOM_PADDING,
     plotTop = 24,
@@ -78,7 +82,11 @@ function ChartPlot({
   const barWidth = Math.min(84, step * 0.68)
   const maximum = Math.max(
     0,
-    ...groups.map((group) => Number(group.summary?.implementedTotal ?? 0)),
+    ...groups.map(
+      (group, index) =>
+        Number(group.summary?.implementedTotal ?? 0) *
+        (1 + (transfers[index]?.increase ?? 0)),
+    ),
   )
   const axis = useMemo(() => dividendAxis(maximum), [maximum])
   const ceiling = axis.ceiling
@@ -102,6 +110,15 @@ function ChartPlot({
       visible: boolean
       width: number
       metricWidth: number
+      top: number
+      height: number
+    }[]
+  >([])
+  const [transferLabels, setTransferLabels] = useState<
+    {
+      x: number
+      visible: boolean
+      width: number
       top: number
       height: number
     }[]
@@ -146,6 +163,39 @@ function ChartPlot({
           top: boxes[index].y - 2,
           height: boxes[index].height + 4,
         }))
+        const transferNodes = svg!.querySelectorAll<SVGTextElement>(
+          '.chart-transfer-measure',
+        )
+        const transferBoxes = transfers.map((_, index) =>
+          transferNodes[index].getBBox(),
+        )
+        const transferLayout = layoutEventLabels(
+          transferBoxes.map((box, index) =>
+            transfers[index] ? box.width + 4 : null,
+          ),
+          nextLeft,
+          width - 12,
+        ).map((label, index) => ({
+          ...label,
+          width: transferBoxes[index].width + 4,
+          top: transferBoxes[index].y - 2,
+          height: transferBoxes[index].height + 4,
+        }))
+        setTransferLabels((previous) =>
+          previous.length === transferLayout.length &&
+          previous.every((label, index) => {
+            const other = transferLayout[index]
+            return (
+              label.x === other.x &&
+              label.visible === other.visible &&
+              label.width === other.width &&
+              label.top === other.top &&
+              label.height === other.height
+            )
+          })
+            ? previous
+            : transferLayout,
+        )
         setAmountLabels((previous) =>
           previous.length === next.length &&
           previous.every((label, index) => {
@@ -171,7 +221,7 @@ function ChartPlot({
         document.fonts.removeEventListener('loadingdone', measure)
       }
     },
-    [amountTexts, yields, axis, width],
+    [amountTexts, yields, transfers, axis, width],
   )
   function yearText(group: YearGroup, index: number) {
     const amount = group.summary?.implementedTotal
@@ -197,12 +247,47 @@ function ChartPlot({
               viewBox={`0 0 ${width} ${canvasHeight}`}
               height={canvasHeight}
               role="group"
-              aria-label="年度已实施合计与各次现金分红，共用金额刻度，单位为元每股，税前"
+              aria-label={
+                hasTransfers
+                  ? '年度已实施现金分红与单次记录，单位为元每股，税前；金色送转阴影仅示意股份增加比例，不代表现金金额'
+                  : '年度已实施合计与各次现金分红，共用金额刻度，单位为元每股，税前'
+              }
             >
+              <defs>
+                <pattern
+                  id={transferPatternId}
+                  width={10}
+                  height={10}
+                  patternUnits="userSpaceOnUse"
+                >
+                  <rect
+                    className="chart-transfer-background"
+                    width={10}
+                    height={10}
+                    fillOpacity={0.05}
+                  />
+                  <path
+                    className="chart-transfer-hatch"
+                    d="M-2 2 2 -2 M0 10 10 0 M8 12 12 8"
+                    strokeOpacity={0.6}
+                  />
+                </pattern>
+              </defs>
               <g visibility="hidden" aria-hidden="true" pointerEvents="none">
                 {axis.ticks.map((tick) => (
                   <text key={tick.label} className="chart-axis-measure">
                     {tick.label}
+                  </text>
+                ))}
+                {transfers.map((transfer, index) => (
+                  <text
+                    key={`transfer-${index}`}
+                    className="chart-transfer-measure"
+                    x={0}
+                    y={0}
+                    textAnchor="middle"
+                  >
+                    {transfer?.label ?? ''}
                   </text>
                 ))}
                 {yields.map((value, index) => (
@@ -226,7 +311,7 @@ function ChartPlot({
                 ))}
               </g>
               <text className="chart-axis-label" x={left} y={13}>
-                元 / 股
+                {hasTransfers ? '现金：元 / 股' : '元 / 股'}
               </text>
               {axis.ticks.map((tick) => {
                 const y = bottom - (plotHeight * tick.value) / ceiling
@@ -260,8 +345,76 @@ function ChartPlot({
                   (amount == null ? bottom : bottom - height(amount)) - 10
                 const children = chartRecords(group)
                 const text = yearText(group, index)
+                const transfer = transfers[index]
+                const transferLabel = transferLabels[index]
+                const barTop = amount == null ? bottom : bottom - height(amount)
+                const shadowHeight =
+                  amount == null
+                    ? 0
+                    : height(amount) * (transfer?.increase ?? 0)
+                const shadowTop = barTop - shadowHeight
+                // Keep captions separate even for tiny ratios or cash-free schemes.
+                const captionY = Math.max(
+                  14,
+                  Math.min(shadowTop - 8, labelY + (label?.top ?? -16) - 8),
+                )
                 return (
                   <g key={group.year}>
+                    {transfer && (
+                      <g
+                        className="chart-transfer-target"
+                        data-transfer-year={group.year}
+                        {...getTargetProps({
+                          mode: 'year',
+                          text: transfer.text,
+                          onActivate:
+                            transfer.records.length === 1
+                              ? () => onRecord(transfer.records[0])
+                              : () => onYear(group.year),
+                        })}
+                      >
+                        <g className="chart-year-visual chart-transfer-visual">
+                          {shadowHeight > 0 && (
+                            <rect
+                              className="chart-transfer"
+                              fill={`url(#${transferPatternId})`}
+                              x={x - barWidth / 2}
+                              y={shadowTop}
+                              width={barWidth}
+                              height={shadowHeight}
+                            />
+                          )}
+                          {transferLabel?.visible && (
+                            <text
+                              className="chart-transfer-label"
+                              x={transferLabel.x}
+                              y={captionY}
+                              textAnchor="middle"
+                            >
+                              {transfer.label}
+                            </text>
+                          )}
+                        </g>
+                        {shadowHeight > 0 && (
+                          <rect
+                            className="chart-hit"
+                            x={x - barWidth / 2}
+                            y={shadowTop}
+                            width={barWidth}
+                            height={shadowHeight}
+                          />
+                        )}
+                        {transferLabel?.visible && (
+                          <rect
+                            className="chart-hit"
+                            x={transferLabel.x - transferLabel.width / 2}
+                            y={captionY + transferLabel.top}
+                            width={transferLabel.width}
+                            height={transferLabel.height}
+                          />
+                        )}
+                      </g>
+                    )}
                     <g
                       className={showData ? 'chart-year-target' : undefined}
                       {...(showData
@@ -314,7 +467,7 @@ function ChartPlot({
                         )}
                         {showData && label?.visible && (
                           <text
-                            className="chart-amount"
+                            className={`chart-amount${transfer ? ' chart-amount-on-transfer' : ''}`}
                             x={label.x}
                             y={labelY}
                             textAnchor="middle"

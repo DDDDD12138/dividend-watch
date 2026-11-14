@@ -1,5 +1,8 @@
 import { expect, it } from 'vitest'
-import { layoutAmountLabels } from '../src/features/dividends/amountLabels'
+import {
+  layoutAmountLabels,
+  layoutEventLabels,
+} from '../src/features/dividends/amountLabels'
 import { cash, dividendAmount } from '../src/features/dividends/model'
 it('pads dividend amounts without rounding or losing decimal precision', () => {
   expect(dividendAmount('0.4')).toBe('0.400')
@@ -44,4 +47,39 @@ it('omits labels that cannot fit at all instead of truncating their value', () =
   expect(layoutAmountLabels([300], 0, 200)[0].visible).toBe(false)
   expect(layoutAmountLabels([], 0, 200)).toEqual([])
   expect(layoutAmountLabels([40], 0, 0)[0].visible).toBe(false)
+})
+
+it('preserves isolated event captions at their actual year positions', () => {
+  const widths = [null, 32, null, null, 40, null]
+  const labels = layoutEventLabels(widths, 40, 640)
+  expect(labels.map((label) => label.visible)).toEqual([
+    false,
+    true,
+    false,
+    false,
+    true,
+    false,
+  ])
+  expect(labels[1].x).toBe(190)
+  expect(labels[4].x).toBe(490)
+})
+
+it('keeps recent event captions readable without overlap on dense charts', () => {
+  const widths = [30, 52, null, 60, 100, null, 36]
+  const labels = layoutEventLabels(widths, 42, 240)
+  expect(labels.at(-1)?.visible).toBe(true)
+  let previousRight = -Infinity
+  labels.forEach((label, index) => {
+    if (!label.visible) return
+    const width = widths[index]!
+    expect(label.x - width / 2).toBeGreaterThanOrEqual(42)
+    expect(label.x + width / 2).toBeLessThanOrEqual(240)
+    expect(label.x - width / 2 - previousRight).toBeGreaterThanOrEqual(8)
+    previousRight = label.x + width / 2
+  })
+  expect(
+    layoutEventLabels([null, 250], 42, 240).every((label) => !label.visible),
+  ).toBe(true)
+  expect(layoutEventLabels([32], 42, 42)[0].visible).toBe(false)
+  expect(layoutEventLabels([], 0, 100)).toEqual([])
 })
