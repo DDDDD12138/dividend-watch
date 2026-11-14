@@ -12,6 +12,9 @@ dist
 dist-ssr
 *.local
 
+# Local temporary files and demos
+/.tmp/
+
 # Cloudflare / EdgeOne local state and secrets
 .wrangler/
 .edgeone/
@@ -36,4 +39,3 @@ dist-ssr
 .env
 .edgeone/*
 .tef_dist/*
-  
