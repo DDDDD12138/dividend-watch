@@ -2,11 +2,12 @@ import { describe, expect, it, vi } from 'vitest'
 import { normalizeRecord, fetchDividends } from '../worker/providers/eastmoney'
 import { parseQuotes } from '../worker/providers/tencent'
 import { request } from '../worker/providers/http'
-import { rows, now, quoteText, bankIdentity, bankCompanies } from './helpers'
+import { dividendRow, quoteText, eastmoneyPage } from './support/providers'
+import { now, bankIdentity, bankCompanies } from './support/context'
 describe('source facts', () => {
   it('preserves unknown progress without translating or inventing fields', async () => {
     const raw = {
-      ...rows()[1],
+      ...dividendRow(),
       ASSIGN_PROGRESS: '来源新增状态：取消待定',
       IMPL_PLAN_PROFILE: '特别说明：不送2股',
     }
@@ -20,7 +21,7 @@ describe('source facts', () => {
     expect(record).not.toHaveProperty('paymentStatus')
   })
   it('keeps distinct announcement dates and raw units', async () => {
-    const record = await normalizeRecord(bankIdentity(), rows()[1])
+    const record = await normalizeRecord(bankIdentity(), dividendRow())
     expect(record.cashPerTenShares).toBe('2.029')
     expect(record.cashPerShare).toBe('0.2029')
     expect(record.planNoticeDate).toBe('2026-03-28')
@@ -28,26 +29,25 @@ describe('source facts', () => {
     expect(record.recordDate).toBe('2026-07-10')
     expect(record.exDate).toBe('2026-07-13')
   })
-  it('preserves valid cash when optional date, text or ratio is malformed', async () => {
-    const record = await normalizeRecord(bankIdentity(), {
-      ...rows()[1],
-      NOTICE_DATE: '2026-02-30',
-      BONUS_RATIO: 'broken',
-      IMPL_PLAN_PROFILE: 42,
-    })
-    expect(record.cashPerShare).toBe('0.2029')
-    expect(record.latestNoticeDate).toBeNull()
-    expect(record.issues.map((i) => i.field)).toEqual(
-      expect.arrayContaining([
-        'NOTICE_DATE',
-        'BONUS_RATIO',
-        'IMPL_PLAN_PROFILE',
-      ]),
-    )
-  })
+  it.each(['BONUS_RATIO', 'IT_RATIO'])(
+    'preserves valid cash when optional date, text or %s is malformed',
+    async (field) => {
+      const record = await normalizeRecord(bankIdentity(), {
+        ...dividendRow(),
+        NOTICE_DATE: '2026-02-30',
+        [field]: 'broken',
+        IMPL_PLAN_PROFILE: 42,
+      })
+      expect(record.cashPerShare).toBe('0.2029')
+      expect(record.latestNoticeDate).toBeNull()
+      expect(record.issues.map((i) => i.field)).toEqual(
+        expect.arrayContaining(['NOTICE_DATE', field, 'IMPL_PLAN_PROFILE']),
+      )
+    },
+  )
   it('represents invalid required values instead of silently dropping them', async () => {
     const record = await normalizeRecord(bankIdentity(), {
-      ...rows()[1],
+      ...dividendRow(),
       REPORT_DATE: 'bad',
       PRETAX_BONUS_RMB: 'bad',
     })
@@ -57,14 +57,17 @@ describe('source facts', () => {
       expect.arrayContaining(['REPORT_DATE', 'PRETAX_BONUS_RMB']),
     )
     await expect(
-      normalizeRecord(bankIdentity(), { ...rows()[1], SECUCODE: '601939.HK' }),
+      normalizeRecord(bankIdentity(), {
+        ...dividendRow(),
+        SECUCODE: '601939.HK',
+      }),
     ).rejects.toThrow()
   })
   it('normalizes raw numeric zero and small decimals without inventing missing amounts', async () => {
     expect(
       (
         await normalizeRecord(bankIdentity(), {
-          ...rows()[1],
+          ...dividendRow(),
           PRETAX_BONUS_RMB: 0,
         })
       ).cashPerShare,
@@ -72,7 +75,7 @@ describe('source facts', () => {
     expect(
       (
         await normalizeRecord(bankIdentity(), {
-          ...rows()[1],
+          ...dividendRow(),
           PRETAX_BONUS_RMB: null,
         })
       ).cashPerShare,
@@ -80,7 +83,7 @@ describe('source facts', () => {
     expect(
       (
         await normalizeRecord(bankIdentity(), {
-          ...rows()[1],
+          ...dividendRow(),
           BONUS_RATIO: 0.00000001,
         })
       ).bonusRatio,
@@ -89,14 +92,11 @@ describe('source facts', () => {
 })
 describe('pagination', () => {
   it('fetches every page and deduplicates identical rows ignoring JSON property order', async () => {
-    const raw = rows()[1],
+    const raw = dividendRow(),
       reversed = Object.fromEntries(Object.entries(raw).reverse())
     const fetcher = vi.fn(async (input: string | URL | Request) => {
       const page = new URL(String(input)).searchParams.get('pageNumber')
-      return Response.json({
-        success: true,
-        result: { pages: 2, count: 2, data: [page === '1' ? raw : reversed] },
-      })
+      return eastmoneyPage([page === '1' ? raw : reversed], 2, 2)
     })
     const result = await fetchDividends(fetcher, bankIdentity(), now)
     expect(fetcher).toHaveBeenCalledTimes(2)
@@ -107,12 +107,7 @@ describe('pagination', () => {
   it('keeps fetched rows with incomplete coverage after a subsequent failure', async () => {
     const fetcher = vi
       .fn()
-      .mockResolvedValueOnce(
-        Response.json({
-          success: true,
-          result: { pages: 2, count: 2, data: [rows()[1]] },
-        }),
-      )
+      .mockResolvedValueOnce(eastmoneyPage([dividendRow()], 2, 2))
       .mockRejectedValueOnce(new Error('timeout'))
     const result = await fetchDividends(fetcher, bankIdentity(), now)
     expect(result.records).toHaveLength(1)
@@ -121,12 +116,11 @@ describe('pagination', () => {
   })
   it('does not claim complete coverage after source identity or report-period failure', async () => {
     const data = [
-      { ...rows()[1], SECURITY_CODE: '600000' },
-      { ...rows()[2], REPORT_DATE: null },
+      { ...dividendRow(), SECURITY_CODE: '600000' },
+      { ...dividendRow({ REPORT_DATE: '2025-06-30' }), REPORT_DATE: null },
     ]
     const result = await fetchDividends(
-      async () =>
-        Response.json({ success: true, result: { pages: 1, count: 2, data } }),
+      async () => eastmoneyPage(data),
       bankIdentity(),
       now,
     )
@@ -136,11 +130,7 @@ describe('pagination', () => {
   })
   it('distinguishes source-declared empty results and rejected responses', async () => {
     const result = await fetchDividends(
-      async () =>
-        Response.json({
-          success: true,
-          result: { pages: 0, count: 0, data: [] },
-        }),
+      async () => eastmoneyPage([], 0, 0),
       bankIdentity(),
       now,
     )
@@ -157,17 +147,9 @@ describe('pagination', () => {
   it('detects count and page changes', async () => {
     const fetcher = vi
       .fn()
+      .mockResolvedValueOnce(eastmoneyPage([dividendRow()], 2, 2))
       .mockResolvedValueOnce(
-        Response.json({
-          success: true,
-          result: { pages: 2, count: 2, data: [rows()[1]] },
-        }),
-      )
-      .mockResolvedValueOnce(
-        Response.json({
-          success: true,
-          result: { pages: 3, count: 3, data: [rows()[2]] },
-        }),
+        eastmoneyPage([dividendRow({ REPORT_DATE: '2025-06-30' })], 3, 3),
       )
     expect(
       (await fetchDividends(fetcher, bankIdentity(), now)).completeFetch,
@@ -271,12 +253,7 @@ it('recognizes only the explicit empty-result code and treats later empty pages 
   ).rejects.toThrow()
   const fetcher = vi
     .fn()
-    .mockResolvedValueOnce(
-      Response.json({
-        success: true,
-        result: { pages: 2, count: 2, data: [rows()[1]] },
-      }),
-    )
+    .mockResolvedValueOnce(eastmoneyPage([dividendRow()], 2, 2))
     .mockResolvedValueOnce(Response.json(empty))
   expect(
     (await fetchDividends(fetcher, bankIdentity(), now)).completeFetch,

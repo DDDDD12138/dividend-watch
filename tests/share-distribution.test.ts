@@ -2,8 +2,11 @@ import { beforeAll, describe, expect, it, vi } from 'vitest'
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import type { DividendHistory, EastmoneyDividend } from '../shared/api'
-import { normalizeRecord } from '../worker/providers/eastmoney'
-import { buildHistory } from '../worker/services/history'
+import {
+  dividendRecord,
+  dividendHistory,
+  annualDividend,
+} from './support/domain'
 import { historyView, type YearGroup } from '../src/features/dividends/model'
 import { annualShareDistribution } from '../src/features/dividends/shareDistribution'
 import { AnnualChart } from '../src/features/dividends/AnnualChart'
@@ -22,46 +25,58 @@ vi.mock('../src/features/dividends/chartHooks', async (importOriginal) => ({
 let history: DividendHistory
 let groups: YearGroup[]
 let original: EastmoneyDividend
-beforeAll(async () => {
+beforeAll(() => {
   const company = { code: '601229', name: '上海银行', market: 'SH' as const }
   // Only the values required for the fiscal-year and share-ratio regression.
   const cases = [
-    [2016, 5, 3, '2017-07-20'],
-    [2017, 5, 4, '2018-07-17'],
-    [2018, 4.5, 3, '2019-07-03'],
-    [2019, 4, null, '2020-07-08'],
-    [2020, 4, null, '2021-07-06'],
+    [2016, '5', '0.5', '3', '2017-07-20'],
+    [2017, '5', '0.5', '4', '2018-07-17'],
+    [2018, '4.5', '0.45', '3', '2019-07-03'],
+    [2019, '4', '0.4', null, '2020-07-08'],
+    [2020, '4', '0.4', null, '2021-07-06'],
   ] as const
-  const records = await Promise.all(
-    cases.map(([year, cash, transfer, exDate]) =>
-      normalizeRecord(company, {
-        SECUCODE: `${company.code}.${company.market}`,
-        SECURITY_CODE: company.code,
-        SECURITY_NAME_ABBR: company.name,
-        REPORT_DATE: `${year}-12-31`,
-        ASSIGN_PROGRESS: '实施分配',
-        PRETAX_BONUS_RMB: cash,
-        IT_RATIO: transfer,
-        BONUS_RATIO: null,
-        EX_DIVIDEND_DATE: exDate,
-        EQUITY_RECORD_DATE: new Date(Date.parse(exDate) - 86_400_000)
-          .toISOString()
-          .slice(0, 10),
+  const records = cases.map(([year, cash, perShare, transfer, exDate]) =>
+    dividendRecord({
+      recordId: `year-${year}`,
+      code: company.code,
+      sourceName: company.name,
+      reportDate: `${year}-12-31`,
+      fiscalYear: year,
+      cashPerTenShares: cash,
+      cashPerShare: perShare,
+      transferRatio: transfer,
+      exDate,
+      recordDate: new Date(Date.parse(exDate) - 86_400_000)
+        .toISOString()
+        .slice(0, 10),
+    }),
+  )
+  history = dividendHistory({
+    company,
+    code: company.code,
+    records,
+    annualSummaries: cases.map(([year, , perShare, transfer]) =>
+      annualDividend({
+        fiscalYear: year,
+        implementedTotal: perShare,
+        implementedRecordCount: 1,
+        notices: transfer ? [{ code: 'SHARE_BASIS_CHANGED' }] : [],
       }),
     ),
-  )
-  history = buildHistory(
-    company,
-    {
-      records,
-      fetchedAt: '2021-11-15T00:00:00Z',
+    referenceDividend: {
+      fiscalYear: 2020,
+      cashPerShare: '0.4',
+      basis: 'eastmoney_implemented_sum',
+      issues: [],
+      notices: [],
+    },
+    coverage: {
       fetchedRecords: records.length,
+      returnedRecords: records.length,
       pagesRead: 1,
       completeFetch: true,
-      issues: [],
     },
-    new Date('2021-11-15T00:00:00Z'),
-  )
+  })
   groups = historyView(history, '5').chart
   original = groups.find((group) => group.year === 2018)!.records[0]
 })
@@ -84,7 +99,7 @@ function group(
 }
 
 describe('fiscal-year share distribution illustrations', () => {
-  it('uses actual Shanghai Bank ratios per ten shares without carrying them into later years', () => {
+  it('uses per-ten-share ratios without carrying them into later years', () => {
     const before = JSON.stringify(history)
     expect(
       groups.map((item) => annualShareDistribution(item)?.label ?? null),

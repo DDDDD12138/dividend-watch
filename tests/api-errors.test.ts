@@ -2,13 +2,13 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createApp } from '../worker/app'
 import * as history from '../worker/services/history'
 import * as money from '../shared/money'
+import { now } from './support/context'
 import {
-  fixtureFetcher,
-  now,
+  apiFetcher,
   quoteText,
   searchResponse,
   failedResponse,
-} from './helpers'
+} from './support/providers'
 
 beforeEach(() => {
   vi.spyOn(console, 'error').mockImplementation(() => {})
@@ -21,7 +21,7 @@ describe('API error contract', () => {
       throw new TypeError('field parser bug')
     })
     const response = await createApp({
-      fetcher: fixtureFetcher,
+      fetcher: apiFetcher,
       now: () => now,
     }).request('/api/companies/601939/dividends')
     expect(response.status).toBe(500)
@@ -45,7 +45,7 @@ describe('API error contract', () => {
     ['/api/companies/999999/allocations', 404, 'UNSUPPORTED_COMPANY'],
     ['/api/unknown', 404, 'NOT_FOUND'],
   ])('returns only the error code for %s', async (path, status, code) => {
-    const app = createApp({ fetcher: fixtureFetcher })
+    const app = createApp({ fetcher: apiFetcher })
     const response = await app.request(path)
     expect(response.status).toBe(status)
     expect(response.headers.get('Cache-Control')).toBe('no-store')
@@ -61,7 +61,7 @@ describe('API error contract', () => {
     'returns 500 for unexpected errors rather than disguising them as upstream failures: %s',
     async (path) => {
       const failure = new ReferenceError('private implementation details')
-      const fetcher = vi.fn(fixtureFetcher)
+      const fetcher = vi.fn(apiFetcher)
       const app = createApp({
         fetcher,
         now: () => {
@@ -89,7 +89,7 @@ describe('API error contract', () => {
       throw new Error('calculation bug')
     })
     const response = await createApp({
-      fetcher: fixtureFetcher,
+      fetcher: apiFetcher,
       now: () => now,
     }).request('/api/companies/601939/dividends')
     expect(response.status).toBe(500)
@@ -137,7 +137,7 @@ describe('API error contract', () => {
           return new Response(quoteText('601939', 'CCB'))
         if (url.searchParams.get('input') === '601398')
           throw new Error('network down')
-        return fixtureFetcher(input)
+        return apiFetcher(input)
       },
     })
     const response = await app.request(
@@ -165,7 +165,7 @@ describe('API error contract', () => {
         fetcher: async (input) =>
           new URL(String(input)).hostname === 'qt.gtimg.cn'
             ? fail()
-            : fixtureFetcher(input),
+            : apiFetcher(input),
         now: () => now,
       })
       const response = await app.request('/api/quotes?codes=601939')

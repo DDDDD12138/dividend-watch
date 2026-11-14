@@ -5,7 +5,12 @@ import {
 } from '../worker/providers/allocations'
 import { createApp } from '../worker/app'
 import { SourceCache, type ResponseCache } from '../worker/services/cache'
-import { bankCompanies, bankIdentity, now, searchResponse } from './helpers'
+import { bankCompanies, bankIdentity, now } from './support/context'
+import {
+  searchResponse,
+  allocationRow as row,
+  eastmoneyPage as response,
+} from './support/providers'
 import type {
   AllocationHistory,
   AnnualAllocation,
@@ -20,19 +25,6 @@ import {
   allocationView,
 } from '../src/features/dividends/allocationModel'
 
-// Small contract examples. No production provider imports this data.
-const row = (overrides: Record<string, unknown> = {}) => ({
-  SECUCODE: '601939.SH',
-  SECURITY_CODE: '601939',
-  REPORT_DATE: '2025-12-31 00:00:00',
-  PARENTNETPROFIT: 338906000000,
-  DIVIDEND_IMPLE: 101684000000,
-  DIVIDEND_PLAN: 200000000000,
-  DIVIDEND_PAY_IMPLE: 30.003599818239,
-  ...overrides,
-})
-const response = (data: unknown[], pages = 1, count = data.length) =>
-  Response.json({ success: true, result: { data, pages, count } })
 const identity = bankIdentity()
 const record = (
   overrides: Partial<AnnualAllocation> = {},
@@ -60,14 +52,17 @@ function history(records: AnnualAllocation[]): AllocationHistory {
 }
 describe('annual statistics source contract', () => {
   it('uses implemented CNY amounts, not percentage fields, proposal amounts or current shares', () => {
-    const result = normalizeAllocation(identity, row({ TOTAL_SHARES: 1 }))
+    const result = normalizeAllocation(
+      identity,
+      row({ TOTAL_SHARES: 1, DIVIDEND_PLAN: 200, DIVIDEND_PAY_IMPLE: 75 }),
+    )
     expect(result).toEqual({
       fiscalYear: 2025,
-      netProfit: '338906000000',
-      cashDividend: '101684000000',
+      netProfit: '100',
+      cashDividend: '20',
       issues: [],
     })
-    expect(allocationRatio(result)).toBe('30.0')
+    expect(allocationRatio(result)).toBe('20.0')
   })
   it('preserves losses, explicit zero and missing fields separately', () => {
     const result = normalizeAllocation(
@@ -89,7 +84,7 @@ describe('annual statistics source contract', () => {
         row({ DIVIDEND_IMPLE: value }),
       )
       expect(result.cashDividend).toBeNull()
-      expect(result.netProfit).toBe('338906000000')
+      expect(result.netProfit).toBe('100')
       expect(result.issues[0].code).toBe('INVALID_FIELD')
     },
   )
@@ -164,7 +159,7 @@ describe('annual statistics source contract', () => {
       now,
     )
     expect(result.years).toHaveLength(1)
-    expect(result.years[0].cashDividend).toBe('101684000000')
+    expect(result.years[0].cashDividend).toBe('20')
   })
   it('accepts explicit empty data but rejects arbitrary failure text', async () => {
     const empty = await fetchAllocations(
@@ -331,7 +326,7 @@ describe('allocation API', () => {
     const body = (await first.json()) as ApiResponse<AllocationHistory>
     expect(body.data.company).toEqual(bankCompanies[0])
     expect(body.data.lastEndedYear).toBe(2025)
-    expect(body.data.years[0].cashDividend).toBe('101684000000')
+    expect(body.data.years[0].cashDividend).toBe('20')
     expect(body.meta.cache).toBe('miss')
     const second = (await (
       await app.request('/api/companies/601939/allocations')

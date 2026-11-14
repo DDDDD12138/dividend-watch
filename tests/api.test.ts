@@ -7,14 +7,8 @@ import type {
 } from '../shared/api'
 import { createApp } from '../worker/app'
 import { SourceCache, type ResponseCache } from '../worker/services/cache'
-import {
-  fixtureFetcher,
-  now,
-  quoteBytes,
-  quoteText,
-  searchResponse,
-  bankCompanies,
-} from './helpers'
+import { now, bankCompanies } from './support/context'
+import { apiFetcher, quoteText, searchResponse } from './support/providers'
 class MemoryCache implements ResponseCache {
   entries = new Map<string, Response>()
   async match(key: Request) {
@@ -25,7 +19,7 @@ class MemoryCache implements ResponseCache {
   }
 }
 describe('API contracts', () => {
-  const app = createApp({ fetcher: fixtureFetcher, now: () => now })
+  const app = createApp({ fetcher: apiFetcher, now: () => now })
   it('retains health response', async () => {
     expect(await (await app.request('/api/health')).json()).toEqual({
       status: 'ok',
@@ -58,7 +52,7 @@ describe('API contracts', () => {
     expect(response.headers.get('Cache-Control')).toBe('no-store')
     const body = (await response.json()) as ApiResponse<DividendHistory>
     expect(body.data.company).toEqual(bankCompanies[0])
-    expect(body.data.referenceDividend.cashPerShare).toBe('0.3887')
+    expect(body.data.referenceDividend.cashPerShare).toBe('0.2')
     expect(body.meta.source).toBe('eastmoney')
     expect(body.meta.issues).toEqual([])
     expect(
@@ -70,7 +64,7 @@ describe('API contracts', () => {
     expect(body.data.records[0]).not.toHaveProperty('stage')
   })
   it('returns search identities from Eastmoney instead of fetching every quote', async () => {
-    const fetcher = vi.fn(fixtureFetcher)
+    const fetcher = vi.fn(apiFetcher)
     const app = createApp({ fetcher })
     const body = (await (
       await app.request('/api/companies?q=建设')
@@ -103,15 +97,15 @@ describe('API contracts', () => {
       const url = new URL(String(input))
       if (url.hostname === 'qt.gtimg.cn') {
         expect(url.pathname.slice(3)).toBe('sh601398,sh601939')
-        return new Response(quoteBytes())
+        return new Response(quoteText('601939', 'CCB'))
       }
-      return fixtureFetcher(input)
+      return apiFetcher(input)
     })
     const app = createApp({ fetcher, now: () => now })
     const body = (await (
       await app.request('/api/quotes?codes=601939,601398,999999')
     ).json()) as ApiResponse<QuoteItem[]>
-    expect(body.data[0].quote?.name).toBe('建设银行')
+    expect(body.data[0].quote?.name).toBe('CCB')
     expect(body.data[0].quote?.market).toBe('SH')
     expect(body.data[1].error?.code).toBe('QUOTE_UNAVAILABLE')
     expect(body.data[2].error?.code).toBe('UNSUPPORTED_COMPANY')
@@ -159,7 +153,7 @@ describe('API contracts', () => {
     const fetcher = vi.fn(async (input: string | URL | Request) =>
       new URL(String(input)).hostname === 'qt.gtimg.cn'
         ? new Response(null, { status: 503 })
-        : fixtureFetcher(input),
+        : apiFetcher(input),
     )
     const app = createApp({ fetcher, cache: new MemoryCache(), now: () => now })
     await app.request('/api/companies/601939/dividends')
@@ -181,7 +175,7 @@ describe('API contracts', () => {
     const fetcher = vi.fn(async (input: string | URL | Request) =>
       new URL(String(input)).hostname === 'qt.gtimg.cn'
         ? new Response(quoteText('601939', 'CCB') + quoteText('601398', 'ICBC'))
-        : fixtureFetcher(input),
+        : apiFetcher(input),
     )
     const app = createApp({ fetcher, cache: new MemoryCache(), now: () => now })
     await app.request('/api/quotes?codes=601939,601398')
@@ -199,7 +193,7 @@ describe('API contracts', () => {
       now: () => now,
       fetcher: async (input) =>
         new URL(String(input)).hostname === 'searchapi.eastmoney.com'
-          ? fixtureFetcher(input)
+          ? apiFetcher(input)
           : Response.json({
               success: true,
               result: {
@@ -292,7 +286,7 @@ it('does not read the previous cache namespace', async () => {
 
 it('recomputes the dividend reference year after Shanghai midnight with cached source records', async () => {
   let time = new Date('2026-12-31T15:59:00Z')
-  const fetcher = vi.fn(fixtureFetcher)
+  const fetcher = vi.fn(apiFetcher)
   const app = createApp({ fetcher, cache: new MemoryCache(), now: () => time })
   const before = (await (
     await app.request('/api/companies/601939/dividends')

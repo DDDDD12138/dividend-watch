@@ -1,0 +1,31 @@
+{
+  "capturedAt": "2026-11-14T23:05:52Z",
+  "note": "Public HTTP response bodies captured with curl -fsSL; no field edits. Time recorded immediately after capture. Report-date filters limit the two history responses.",
+  "samples": [
+    {
+      "file": "eastmoney/search.json",
+      "url": "https://searchapi.eastmoney.com/api/suggest/get?input=601939&type=14&count=30",
+      "encoding": "utf-8"
+    },
+    {
+      "file": "eastmoney/profile.json",
+      "url": "https://datacenter-web.eastmoney.com/api/data/v1/get?reportName=RPT_F10_BASIC_ORGINFO&columns=SECUCODE%2CSECURITY_CODE%2CLISTING_DATE%2CMAIN_BUSINESS&filter=(SECUCODE%3D%22601939.SH%22)",
+      "encoding": "utf-8"
+    },
+    {
+      "file": "eastmoney/allocations.json",
+      "url": "https://datacenter.eastmoney.com/securities/api/data/v1/get?reportName=RPT_F10_DIVIDEND_HISTOGRAM&columns=SECUCODE%2CSECURITY_CODE%2CREPORT_DATE%2CPARENTNETPROFIT%2CDIVIDEND_IMPLE&filter=(SECUCODE%3D%22601939.SH%22)(REPORT_DATE%3D%272025-12-31%27)&source=HSF10&client=PC&sortColumns=REPORT_DATE&sortTypes=-1&pageNumber=1&pageSize=100",
+      "encoding": "utf-8"
+    },
+    {
+      "file": "eastmoney/dividends.json",
+      "url": "https://datacenter-web.eastmoney.com/api/data/v1/get?reportName=RPT_SHAREBONUS_DET&columns=ALL&filter=(SECUCODE%3D%22601939.SH%22)(REPORT_DATE%3E%3D%272025-01-01%27)&source=WEB&client=WEB&sortColumns=REPORT_DATE&sortTypes=-1&pageNumber=1&pageSize=100",
+      "encoding": "utf-8"
+    },
+    {
+      "file": "tencent/quotes.gb18030.bin",
+      "url": "https://qt.gtimg.cn/q=sh601939",
+      "encoding": "gb18030"
+    }
+  ]
+}

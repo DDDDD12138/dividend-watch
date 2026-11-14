@@ -2,6 +2,7 @@ import { createElement, type ReactNode } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { MemoryRouter, Route, Routes } from 'react-router'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { dividendHistory } from './support/domain'
 import type { AllocationHistory } from '../shared/api'
 import { useDividends, useResource, type Resource } from '../src/data/api'
 import { DividendsPage } from '../src/features/dividends/DividendsPage'
@@ -10,9 +11,7 @@ import {
   AllocationDialog,
   type AllocationSelection,
 } from '../src/features/dividends/AllocationDialog'
-import { buildHistory } from '../worker/services/history'
-import { fetchDividends } from '../worker/providers/eastmoney'
-import { bankCompanies, fixtureFetcher, now } from './helpers'
+import { bankCompanies } from './support/context'
 
 vi.mock('../src/components/Modal', () => ({
   Modal: ({ children }: { children: ReactNode }) => children,
@@ -83,12 +82,12 @@ beforeEach(() => {
   vi.mocked(useResource).mockReset().mockReturnValue({ loading: false })
 })
 describe('independent dividend detail views', () => {
-  it('shows the quote basis once above the chart values without duplicating it in year records', async () => {
-    const input = await fetchDividends(fixtureFetcher, bankCompanies[0], now)
+  it('shows the quote basis once above the chart values without duplicating it in year records', () => {
+    const data = dividendHistory()
     vi.mocked(useDividends).mockReturnValue({
       loading: false,
       response: {
-        data: buildHistory(bankCompanies[0], input, now),
+        data,
         meta: annual.response!.meta,
       },
     })
@@ -137,19 +136,26 @@ describe('independent dividend detail views', () => {
       expect(html).toContain('参考股息率')
     },
   )
-  it('separates share information from invalid share data without blocking cash calculations', async () => {
-    const input = await fetchDividends(fixtureFetcher, bankCompanies[0], now)
-    const record = input.records.find(
+  it('separates share information from invalid share data without blocking cash calculations', () => {
+    const data = dividendHistory()
+    const record = data.records.find(
       (record) => record.reportDate === '2025-12-31',
     )!
     record.transferRatio = '1'
     record.bonusRatio = null
+    data.annualSummaries.find((year) => year.fiscalYear === 2025)!.notices = [
+      { code: 'SHARE_BASIS_CHANGED' },
+      { code: 'INVALID_SHARE_RATIO' },
+    ]
+    data.referenceDividend.notices = [
+      { code: 'SHARE_BASIS_CHANGED' },
+      { code: 'INVALID_SHARE_RATIO' },
+    ]
     record.issues.push({
       code: 'INVALID_FIELD',
       field: 'BONUS_RATIO',
       recordId: record.recordId,
     })
-    const data = buildHistory(bankCompanies[0], input, now)
     vi.mocked(useDividends).mockReturnValue({
       loading: false,
       response: { data, meta: annual.response!.meta },
@@ -162,18 +168,22 @@ describe('independent dividend detail views', () => {
       'class="dividend-notice dividend-notice--error">送转资料异常，不影响现金分红计算。',
     )
     expect(html).toContain('class="reference-badge">首页参考')
-    expect(data.referenceDividend.cashPerShare).toBe('0.3887')
+    expect(data.referenceDividend.cashPerShare).toBe('0.3')
     expect(data.referenceDividend.issues).toEqual([])
   })
-  it('marks a cash reference year with transfers and displays notices separately from problems', async () => {
-    const input = await fetchDividends(fixtureFetcher, bankCompanies[0], now)
-    input.records.find(
+  it('marks a cash reference year with transfers and displays notices separately from problems', () => {
+    const data = dividendHistory()
+    data.records.find(
       (record) => record.reportDate === '2025-12-31',
     )!.transferRatio = '1'
+    data.annualSummaries.find((year) => year.fiscalYear === 2025)!.notices = [
+      { code: 'SHARE_BASIS_CHANGED' },
+    ]
+    data.referenceDividend.notices = [{ code: 'SHARE_BASIS_CHANGED' }]
     vi.mocked(useDividends).mockReturnValue({
       loading: false,
       response: {
-        data: buildHistory(bankCompanies[0], input, now),
+        data,
         meta: annual.response!.meta,
       },
     })

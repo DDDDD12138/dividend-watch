@@ -1,25 +1,10 @@
 import { describe, expect, it, vi } from 'vitest'
 import { fetchProfile } from '../worker/providers/profile'
 import { createApp } from '../worker/app'
-import { now, searchResponse } from './helpers'
+import { now } from './support/context'
+import { searchResponse, profileResponse } from './support/providers'
 
 const company = { code: '600941', market: 'SH', name: '中国移动' } as const
-function profileResponse(overrides: Record<string, unknown> = {}) {
-  return Response.json({
-    success: true,
-    result: {
-      data: [
-        {
-          SECUCODE: '600941.SH',
-          SECURITY_CODE: '600941',
-          LISTING_DATE: '2022-01-05 00:00:00',
-          MAIN_BUSINESS: '通信和信息服务',
-          ...overrides,
-        },
-      ],
-    },
-  })
-}
 
 describe('market-specific company profile', () => {
   it.each([null, '', '  ', undefined])(

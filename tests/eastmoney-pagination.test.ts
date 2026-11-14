@@ -4,19 +4,19 @@ import { fetchDividends } from '../worker/providers/eastmoney'
 import { fetchAllocations } from '../worker/providers/allocations'
 import type { Fetcher } from '../worker/providers/http'
 import { SourceError } from '../worker/providers/errors'
+import { bankCompanies, bankIdentity, now } from './support/context'
 import {
-  bankCompanies,
-  bankIdentity,
-  now,
-  rows,
+  dividendRow,
   searchResponse,
   failedResponse,
-} from './helpers'
+  allocationRow,
+  eastmoneyPage as page,
+} from './support/providers'
 
 const sources = [
   {
     name: 'dividends',
-    row: () => rows()[1],
+    row: () => dividendRow(),
     load: async (fetcher: Fetcher) => {
       const value = await fetchDividends(fetcher, bankIdentity(), now)
       return {
@@ -29,13 +29,7 @@ const sources = [
   },
   {
     name: 'allocations',
-    row: () => ({
-      SECURITY_CODE: '601939',
-      SECUCODE: '601939.SH',
-      REPORT_DATE: '2025-12-31',
-      PARENTNETPROFIT: '100',
-      DIVIDEND_IMPLE: '20',
-    }),
+    row: allocationRow,
     load: async (fetcher: Fetcher) => {
       const value = await fetchAllocations(fetcher, bankIdentity(), now)
       return {
@@ -47,8 +41,6 @@ const sources = [
     },
   },
 ]
-const page = (data: unknown[], pages: number, count: number) =>
-  Response.json({ success: true, result: { pages, count, data } })
 
 beforeEach(() => {
   vi.spyOn(console, 'error').mockImplementation(() => {})

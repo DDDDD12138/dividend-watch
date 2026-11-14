@@ -6,44 +6,50 @@ import {
   uniqueDividendNotices,
 } from '../shared/dividendNotices'
 import { DividendNotices } from '../src/features/dividends/DividendNotices'
-import { normalizeRecord } from '../worker/providers/eastmoney'
-import { bankIdentity, rows } from './helpers'
-
-async function record(overrides: Record<string, unknown> = {}) {
-  return normalizeRecord(bankIdentity(), {
-    ...rows()[1],
-    BONUS_RATIO: null,
-    IT_RATIO: null,
-    ...overrides,
-  })
-}
+import { dividendRecord as record } from './support/domain'
 
 it.each([
   [{}, []],
-  [{ BONUS_RATIO: 0, IT_RATIO: 0 }, []],
-  [{ BONUS_RATIO: 2 }, ['SHARE_BASIS_CHANGED']],
-  [{ IT_RATIO: 1 }, ['SHARE_BASIS_CHANGED']],
-  [{ BONUS_RATIO: 2, IT_RATIO: 1 }, ['SHARE_BASIS_CHANGED']],
-  [{ BONUS_RATIO: 'invalid' }, ['INVALID_SHARE_RATIO']],
-  [{ IT_RATIO: 'invalid' }, ['INVALID_SHARE_RATIO']],
+  [{ bonusRatio: '0', transferRatio: '0' }, []],
+  [{ bonusRatio: '2' }, ['SHARE_BASIS_CHANGED']],
+  [{ transferRatio: '1' }, ['SHARE_BASIS_CHANGED']],
+  [{ bonusRatio: '2', transferRatio: '1' }, ['SHARE_BASIS_CHANGED']],
   [
-    { BONUS_RATIO: 'invalid', IT_RATIO: 1 },
+    { issues: [{ code: 'INVALID_FIELD', field: 'BONUS_RATIO' }] },
+    ['INVALID_SHARE_RATIO'],
+  ],
+  [
+    { issues: [{ code: 'INVALID_FIELD', field: 'IT_RATIO' }] },
+    ['INVALID_SHARE_RATIO'],
+  ],
+  [
+    {
+      issues: [{ code: 'INVALID_FIELD', field: 'BONUS_RATIO' }],
+      transferRatio: '1',
+    },
     ['SHARE_BASIS_CHANGED', 'INVALID_SHARE_RATIO'],
   ],
-  [{ NOTICE_DATE: 'invalid' }, []],
+  [{ issues: [{ code: 'INVALID_FIELD', field: 'NOTICE_DATE' }] }, []],
   [
-    { BONUS_RATIO: 'invalid', IT_RATIO: 1, ASSIGN_PROGRESS: '董事会决议通过' },
+    {
+      issues: [{ code: 'INVALID_FIELD', field: 'BONUS_RATIO' }],
+      transferRatio: '1',
+      progress: '董事会决议通过',
+    },
     [],
   ],
-])('classifies source share fields consistently: %j', async (fields, codes) => {
-  expect(
-    dividendNotices(await record(fields)).map((notice) => notice.code),
-  ).toEqual(codes)
+])('classifies normalized share fields consistently: %j', (fields, codes) => {
+  expect(dividendNotices(record(fields)).map((notice) => notice.code)).toEqual(
+    codes,
+  )
 })
 
-it('keeps separators outside independently colored compact notices', async () => {
+it('keeps separators outside independently colored compact notices', () => {
   const notices = dividendNotices(
-    await record({ BONUS_RATIO: 'invalid', IT_RATIO: 1 }),
+    record({
+      issues: [{ code: 'INVALID_FIELD', field: 'BONUS_RATIO' }],
+      transferRatio: '1',
+    }),
   )
   const html = renderToStaticMarkup(
     createElement(DividendNotices, { mode: 'compact', notices }),
@@ -58,8 +64,11 @@ it('keeps separators outside independently colored compact notices', async () =>
   expect(html).not.toMatch(/class="dividend-notice [^"]+">[^<]*·/)
 })
 
-it('keeps both information and errors separate in annual and record modes', async () => {
-  const item = await record({ BONUS_RATIO: 'invalid', IT_RATIO: 1 })
+it('keeps both information and errors separate in annual and record modes', () => {
+  const item = record({
+    issues: [{ code: 'INVALID_FIELD', field: 'BONUS_RATIO' }],
+    transferRatio: '1',
+  })
   const notices = dividendNotices(item)
   const annual = renderToStaticMarkup(
     createElement(DividendNotices, { mode: 'annual', notices }),
@@ -80,9 +89,13 @@ it('keeps both information and errors separate in annual and record modes', asyn
   expect(details).toContain('每 10 股转增 1 股')
 })
 
-it('deduplicates summaries while retaining separate distribution records', async () => {
-  const first = await record({ BONUS_RATIO: 2, IT_RATIO: 1 })
-  const second = await record({ IT_RATIO: 3, REPORT_DATE: '2025-06-30' })
+it('deduplicates summaries while retaining separate distribution records', () => {
+  const first = record({ bonusRatio: '2', transferRatio: '1' })
+  const second = record({
+    recordId: 'interim',
+    transferRatio: '3',
+    reportDate: '2025-06-30',
+  })
   const notices = uniqueDividendNotices(
     [first, second].flatMap(dividendNotices),
   )
@@ -97,7 +110,7 @@ it('deduplicates summaries while retaining separate distribution records', async
   expect(html).toContain('每 10 股转增 3 股')
 })
 
-it('renders nothing for empty notices or records without implemented share changes', async () => {
+it('renders nothing for empty notices or records without implemented share changes', () => {
   for (const mode of ['compact', 'annual'] as const)
     expect(
       renderToStaticMarkup(
@@ -105,8 +118,8 @@ it('renders nothing for empty notices or records without implemented share chang
       ),
     ).toBe('')
   const records = [
-    await record(),
-    await record({ IT_RATIO: 1, ASSIGN_PROGRESS: '董事会决议通过' }),
+    record(),
+    record({ transferRatio: '1', progress: '董事会决议通过' }),
   ]
   expect(
     renderToStaticMarkup(

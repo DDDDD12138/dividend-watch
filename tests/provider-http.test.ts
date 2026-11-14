@@ -7,7 +7,7 @@ import {
   request,
 } from '../worker/providers/http'
 import { SourceDataError, SourceError } from '../worker/providers/errors'
-import { failedResponse } from './helpers'
+import { failedResponse } from './support/providers'
 
 describe('source I/O boundaries', () => {
   it.each([

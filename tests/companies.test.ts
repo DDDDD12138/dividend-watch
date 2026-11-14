@@ -2,10 +2,8 @@ import { describe, expect, it } from 'vitest'
 import { parseCompanies } from '../worker/providers/companies'
 import { normalizeRecord } from '../worker/providers/eastmoney'
 import { parseQuotes } from '../worker/providers/tencent'
-import { now, quoteText, rows } from './helpers'
-const wrap = (Data: unknown[]) => ({
-  QuotationCodeTable: { Status: 0, TotalCount: Data.length, Data },
-})
+import { now } from './support/context'
+import { quoteText, dividendRow, searchBody as wrap } from './support/providers'
 const stock = (Code: string, SecurityType: string, JYS: string) => ({
   Code,
   Name: 'Source name',
@@ -89,7 +87,7 @@ describe('company identities', () => {
         )[0].error?.code,
       ).toBe('QUOTE_UNAVAILABLE')
       const raw = {
-        ...rows()[1],
+        ...dividendRow(),
         SECURITY_CODE: company.code,
         SECUCODE: `${company.code}.${market}`,
       }

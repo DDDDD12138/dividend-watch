@@ -2,11 +2,10 @@ import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { MemoryRouter } from 'react-router'
 import { expect, it, vi } from 'vitest'
+import { dividendHistory } from './support/domain'
 import { useWatchlistDividends } from '../src/features/watchlist/useWatchlistDividends'
 import { StockRow } from '../src/features/watchlist/StockRow'
-import { buildHistory } from '../worker/services/history'
-import { fetchDividends } from '../worker/providers/eastmoney'
-import { bankCompanies, fixtureFetcher, now } from './helpers'
+import { bankCompanies, now } from './support/context'
 
 vi.mock('../src/features/watchlist/useWatchlistDividends', () => ({
   useWatchlistDividends: vi.fn(),
@@ -54,12 +53,8 @@ it.each([
   [false, false],
 ])(
   'keeps values visible and marks the row busy until both requests finish (dividends: %s, quotes: %s)',
-  async (historyLoading, quoteLoading) => {
-    const data = buildHistory(
-      bankCompanies[0],
-      await fetchDividends(fixtureFetcher, bankCompanies[0], now),
-      now,
-    )
+  (historyLoading, quoteLoading) => {
+    const data = dividendHistory()
     vi.mocked(useWatchlistDividends).mockReturnValue({
       loading: historyLoading,
       response: {
@@ -79,17 +74,13 @@ it.each([
     expect(html.includes('aria-label="更新中"')).toBe(loading)
     expect(html).not.toContain('更新中</span>')
     expect(html).toContain('¥10.00')
-    expect(html).toContain('¥0.3887')
-    expect(html).toContain('3.89%')
+    expect(html).toContain('¥0.3')
+    expect(html).toContain('3.00%')
   },
 )
 
-it('shows a concise refresh failure while keeping valuation and fetch time available', async () => {
-  const data = buildHistory(
-    bankCompanies[0],
-    await fetchDividends(fixtureFetcher, bankCompanies[0], now),
-    now,
-  )
+it('shows a concise refresh failure while keeping valuation and fetch time available', () => {
+  const data = dividendHistory()
   vi.mocked(useWatchlistDividends).mockReturnValue({
     loading: false,
     error: '网络连接失败',
@@ -108,8 +99,8 @@ it('shows a concise refresh failure while keeping valuation and fetch time avail
   expect(html).not.toContain('更新中')
   expect(html).toContain('获取于 10/20 09:00')
   expect(html).not.toContain('更新失败 · 使用')
-  expect(html).toContain('3.89%')
-  expect(html).toContain('¥0.3887')
+  expect(html).toContain('3.00%')
+  expect(html).toContain('¥0.3')
 })
 
 it('does not substitute data from another company or year on the first failed request', () => {
@@ -122,12 +113,12 @@ it('does not substitute data from another company or year on the first failed re
   expect(html).not.toContain('更新失败 · 使用')
   expect(html).toContain('class="yield-value">—</strong>')
 })
-it('shows share changes as information while keeping cash, yield and target visible', async () => {
-  const input = await fetchDividends(fixtureFetcher, bankCompanies[0], now)
-  input.records.find(
+it('shows share changes as information while keeping cash, yield and target visible', () => {
+  const data = dividendHistory()
+  data.records.find(
     (record) => record.reportDate === '2025-12-31',
   )!.transferRatio = '1'
-  const data = buildHistory(bankCompanies[0], input, now)
+  data.referenceDividend.notices = [{ code: 'SHARE_BASIS_CHANGED' }]
   vi.mocked(useWatchlistDividends).mockReturnValue({
     loading: false,
     response: {
@@ -145,23 +136,26 @@ it('shows share changes as information while keeping cash, yield and target visi
     '<span class="dividend-notice dividend-notice--info">有送转</span>',
   )
   expect(html).not.toContain('class="row-status"')
-  expect(html).toContain('¥0.3887')
-  expect(html).toContain('3.89%')
-  expect(html).toContain('¥7.06')
+  expect(html).toContain('¥0.3')
+  expect(html).toContain('3.00%')
+  expect(html).toContain('¥5.45')
 })
 it.each([
   ['missing-year', '该财年暂无分红记录'],
   ['incomplete', '分红记录尚未获取完整'],
 ])(
   'uses the same reason in the visible status and explanation for %s',
-  async (scenario, message) => {
-    const input = await fetchDividends(fixtureFetcher, bankCompanies[0], now)
-    if (scenario === 'missing-year')
-      input.records = input.records.filter(
-        (record) => record.fiscalYear !== 2025,
-      )
-    if (scenario === 'incomplete') input.completeFetch = false
-    const data = buildHistory(bankCompanies[0], input, now)
+  (scenario, message) => {
+    const data = dividendHistory()
+    data.referenceDividend.cashPerShare = null
+    data.referenceDividend.issues = [
+      {
+        code:
+          scenario === 'missing-year'
+            ? 'MISSING_REFERENCE_YEAR'
+            : 'INCOMPLETE_FETCH',
+      },
+    ]
     vi.mocked(useWatchlistDividends).mockReturnValue({
       loading: false,
       response: {

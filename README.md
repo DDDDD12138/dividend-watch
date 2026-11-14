@@ -51,7 +51,7 @@ Prettier 按[官方建议](https://prettier.io/docs/install.html)固定精确版
 | `pnpm build`            | 检查类型并构建前端及 Worker 到 `dist/`                            |
 | `pnpm preview`          | 在本地 Workers 运行时预览构建产物，需先构建                       |
 
-API 契约、来源字段和计算口径见 [API 文档](docs/api.md)。使用 `pnpm test` 运行离线回归测试，`pnpm test:watch` 开启监听。
+API 契约、来源字段和计算口径见 [API 文档](docs/api.md)。使用 `pnpm test` 运行离线回归测试，`pnpm test:watch` 开启监听。接口原始响应与人工测试输入的职责及更新方式见 [测试样本说明](tests/fixtures/README.md)。
 
 提交前执行：
 

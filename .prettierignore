@@ -6,4 +6,6 @@ coverage/
 # Managed by pnpm
 pnpm-lock.yaml
 worker-configuration.d.ts
-tests/fixtures/*.json
+
+# Preserve captured response bodies byte-for-byte
+tests/fixtures/eastmoney/*.json
