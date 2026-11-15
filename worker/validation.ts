@@ -1,3 +1,4 @@
+import { chinaYear } from '../shared/time'
 import { MAX_WATCHLIST_SIZE, type ApiErrorCode } from '../shared/api'
 
 const codePattern = /^\d{6}$/
@@ -37,4 +38,14 @@ export function stockCodes(values: string[] = []): string[] {
   )
     throw new InvalidInput('INVALID_CODES')
   return codes
+}
+
+export function priceYears(values: string[] = [], now: Date): number[] {
+  const parts = (values[0] ?? '').split(',')
+  if (values.length !== 1 || parts.some((part) => !/^\d{4}$/.test(part)))
+    throw new InvalidInput('INVALID_QUERY')
+  const years = [...new Set(parts.map(Number))].sort((a, b) => a - b)
+  if (years.some((year) => year < 1990 || year >= chinaYear(now)))
+    throw new InvalidInput('INVALID_QUERY')
+  return years
 }

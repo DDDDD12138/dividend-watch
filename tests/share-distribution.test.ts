@@ -230,7 +230,8 @@ function render(items: YearGroup[], emphasis: 'year' | 'record' | null = null) {
     createElement(AnnualChart, {
       groups: items,
       summaries: items.flatMap((item) => (item.summary ? [item.summary] : [])),
-      quote: null,
+      yieldValues: new Map(),
+      yieldBasis: 'current',
       metric: { title: '参考股息率', basis: '按当前价折算' },
       emptyContent: null,
       emphasis,

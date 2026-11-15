@@ -9,3 +9,4 @@ worker-configuration.d.ts
 
 # Preserve captured response bodies byte-for-byte
 tests/fixtures/eastmoney/*.json
+tests/fixtures/sina/*.json

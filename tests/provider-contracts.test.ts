@@ -5,6 +5,7 @@ import { buildHistory } from '../worker/services/history'
 import { fetchProfile } from '../worker/providers/profile'
 import { fetchAllocations } from '../worker/providers/allocations'
 import { searchCompanies } from '../worker/providers/companies'
+import { fetchYearEndPrices } from '../worker/providers/year-end-prices'
 import { fetchQuotes } from '../worker/providers/tencent'
 import type { Fetcher } from '../worker/providers/http'
 import captures from './fixtures/captures.json'
@@ -38,6 +39,40 @@ function source(
 }
 
 describe('captured provider contracts', () => {
+  it('parses five completed years from a six-row original Sina response', async () => {
+    const fetcher = source(
+      'https://money.finance.sina.com.cn/quotes_service/api/json_v2.php/CN_MarketData.getKLineData',
+      { symbol: 'sh600741', scale: '86400', ma: 'no', datalen: '6' },
+      'sina/year-end-prices.json',
+    )
+    const stamp = new Date(
+      captures.samples.find(
+        (sample) => sample.file === 'sina/year-end-prices.json',
+      )!.capturedAt!,
+    )
+    const result = await fetchYearEndPrices(
+      fetcher,
+      { code: '600741', market: 'SH' },
+      2021,
+      stamp,
+    )
+    expect(
+      result.years.map(({ fiscalYear, tradeDate, price, issues }) => ({
+        fiscalYear,
+        tradeDate,
+        price,
+        issues,
+      })),
+    ).toEqual([
+      { fiscalYear: 2021, tradeDate: '2021-12-31', price: '28.3', issues: [] },
+      { fiscalYear: 2022, tradeDate: '2022-12-30', price: '17.33', issues: [] },
+      { fiscalYear: 2023, tradeDate: '2023-12-29', price: '16.28', issues: [] },
+      { fiscalYear: 2024, tradeDate: '2024-12-31', price: '17.61', issues: [] },
+      { fiscalYear: 2025, tradeDate: '2025-12-31', price: '20', issues: [] },
+    ])
+    expect(fetcher).toHaveBeenCalledOnce()
+  })
+
   it('parses the search envelope and source market identifiers', async () => {
     const fetcher = source(
       'https://searchapi.eastmoney.com/api/suggest/get',

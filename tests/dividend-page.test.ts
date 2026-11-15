@@ -109,7 +109,10 @@ describe('independent dividend detail views', () => {
         : { loading: false },
     )
     const html = renderPage()
-    expect(html).toContain('按当前价 ¥10.00 折算')
+    expect(html).toContain('¥10.00')
+    expect(html).toContain('aria-label="股息率价格口径"')
+    expect(html).toContain('aria-pressed="true">当前价')
+    expect(html).toContain('aria-pressed="false">年末价')
     expect(html).toMatch(/行情时间 11[-/]13 15:00/)
     expect(html).not.toContain('year-yield')
     expect(html).not.toContain('chart-metric-description')
@@ -223,7 +226,7 @@ describe('independent dividend detail views', () => {
         onYear: vi.fn(),
       }),
     )
-    expect(html).toContain('role="status">更新失败</span>')
+    expect(html).toMatch(/role="status"[^>]*>更新失败<\/span>/)
     expect(html).not.toContain('当前显示')
   })
   it.each([{ loading: true }, { loading: false, error: '分红来源暂不可用' }])(

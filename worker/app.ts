@@ -8,7 +8,14 @@ import { quoteService } from './services/quotes'
 import { profileService } from './services/profile'
 import { dividendService } from './services/dividends'
 import { allocationService } from './services/allocations'
-import { InvalidInput, searchQuery, stockCode, stockCodes } from './validation'
+import { yearEndPriceService } from './services/year-end-prices'
+import {
+  priceYears,
+  InvalidInput,
+  searchQuery,
+  stockCode,
+  stockCodes,
+} from './validation'
 
 const errorStatus = {
   INVALID_QUERY: 400,
@@ -36,6 +43,7 @@ export function createApp(
   const companies = companyService({ fetcher, cache, now })
   const dependencies = { companies, cache, fetcher, now }
   const quotes = quoteService(dependencies)
+  const yearEndPrices = yearEndPriceService(dependencies)
   const profiles = profileService(dependencies)
   const dividends = dividendService(dependencies)
   const allocations = allocationService(dependencies)
@@ -53,6 +61,14 @@ export function createApp(
   )
   app.get('/api/quotes', async (c) =>
     c.json(await quotes.get(stockCodes(c.req.queries('codes')))),
+  )
+  app.get('/api/companies/:code/year-end-prices', async (c) =>
+    c.json(
+      await yearEndPrices.get(
+        stockCode(c.req.param('code')),
+        priceYears(c.req.queries('years'), now()),
+      ),
+    ),
   )
   app.get('/api/companies/:code/profile', async (c) =>
     c.json(await profiles.get(stockCode(c.req.param('code')))),

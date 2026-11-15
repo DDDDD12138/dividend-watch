@@ -26,6 +26,12 @@
       "file": "tencent/quotes.gb18030.bin",
       "url": "https://qt.gtimg.cn/q=sh601939",
       "encoding": "gb18030"
+    },
+    {
+      "file": "sina/year-end-prices.json",
+      "url": "https://money.finance.sina.com.cn/quotes_service/api/json_v2.php/CN_MarketData.getKLineData?symbol=sh600741&scale=86400&ma=no&datalen=6",
+      "encoding": "utf-8",
+      "capturedAt": "2026-11-15T15:08:12.425971+00:00"
     }
   ]
 }

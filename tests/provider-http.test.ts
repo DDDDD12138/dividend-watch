@@ -84,7 +84,7 @@ describe('source I/O boundaries', () => {
       expect(failure).toMatchObject({ cause, source })
     },
   )
-  it.each(['eastmoney', 'tencent'] as const)(
+  it.each(['eastmoney', 'tencent', 'sina'] as const)(
     'keeps invalid JSON attributed to %s',
     async (source) => {
       const failure = await readJson(
@@ -98,7 +98,7 @@ describe('source I/O boundaries', () => {
       })
     },
   )
-  it.each(['eastmoney', 'tencent'] as const)(
+  it.each(['eastmoney', 'tencent', 'sina'] as const)(
     'attributes object and date validation failures to %s',
     (source) => {
       for (const parse of [

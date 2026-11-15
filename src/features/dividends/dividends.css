@@ -763,14 +763,27 @@
 /* Both views share a compact heading and the same 64px value row. */
 .chart-metric-heading {
   display: flex;
-  align-items: baseline;
+  align-items: center;
+  justify-content: space-between;
   gap: var(--space-2);
-  height: 20px;
-  line-height: 20px;
+  height: 32px;
+}
+/* Keep the title anchored when the price or transient status changes. */
+.chart-metric-info {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  height: 16px;
+  line-height: 16px;
+}
+.chart-metric-label {
+  display: flex;
+  align-items: center;
+  height: 100%;
+  gap: var(--space-2);
   white-space: nowrap;
 }
-.chart-metric-heading h3,
-.chart-metric-status {
+.chart-metric-label h3 {
   flex-shrink: 0;
 }
 .chart-metric-basis {
@@ -781,7 +794,14 @@
   color: var(--color-text-muted);
 }
 .chart-metric-status {
-  margin-left: auto;
+  position: absolute;
+  top: 100%;
+  left: 0;
+  max-width: 100%;
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   font-size: var(--font-size-xs);
   color: var(--color-danger);
 }
@@ -815,4 +835,36 @@
   fill: var(--color-dividend-transfer-text);
   font-size: var(--font-size-xs);
   font-weight: var(--font-weight-normal);
+}
+
+.chart-yield-switch {
+  display: flex;
+  flex-shrink: 0;
+  gap: var(--space-half);
+  padding: var(--space-half);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-hover);
+}
+.chart-yield-switch button {
+  min-height: 28px;
+  padding: var(--space-1) var(--space-2);
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--color-text-muted);
+  font: inherit;
+  font-size: var(--font-size-xs);
+  line-height: 20px;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.chart-yield-switch button:hover {
+  color: var(--color-primary);
+}
+.chart-yield-switch button:focus-visible {
+  outline-offset: -2px;
+}
+.chart-yield-switch button[aria-pressed='true'] {
+  background: var(--color-surface);
+  color: var(--color-primary);
 }

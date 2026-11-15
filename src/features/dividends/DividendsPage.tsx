@@ -32,7 +32,13 @@ import {
   type ChartLayer,
   type YearGroup,
 } from './model'
-import { requestDividendQuote } from './referenceYield'
+import {
+  annualYieldValues,
+  type YieldBasis,
+  requestDividendQuote,
+} from './referenceYield'
+import { isPreListing } from './listing'
+import { useYearEndPrices } from './yearEndPrices'
 import './dividends.css'
 
 export function DividendsPage() {
@@ -70,9 +76,43 @@ function CompanyDividends({ code }: { code: string }) {
     allocationRequested ? `/api/companies/${code}/allocations` : null,
     revision,
   )
+  const [yieldBasis, setYieldBasis] = useState<YieldBasis>('current')
+  const view = useMemo(
+    () => (history ? historyView(history, range) : null),
+    [history, range],
+  )
+  const chartYears = useMemo(
+    () => view?.chart.map((group) => group.year) ?? [],
+    [view],
+  )
+  const historicalPrices = useYearEndPrices(
+    code,
+    // Wait for the first profile answer: the listing date decides which years
+    // are requested, and a later change would abort and repeat the request.
+    listingDate === undefined && profile.loading
+      ? null
+      : chartYears.filter((year) => !isPreListing(year, listingDate)),
+    yieldBasis === 'yearEnd' && chartView === 'dividend',
+    revision,
+  )
+  const { prices, failures, loading: pricesLoading } = historicalPrices
+  const yieldValues = useMemo(
+    () =>
+      annualYieldValues(
+        history?.annualSummaries ?? [],
+        yieldBasis,
+        quote,
+        { prices, failures, loading: pricesLoading },
+        chartYears,
+      ),
+    [history, yieldBasis, quote, prices, failures, pricesLoading, chartYears],
+  )
   const refreshing =
     chartView === 'dividend'
-      ? resource.loading || quoteResource.loading
+      ? resource.loading ||
+        (yieldBasis === 'current'
+          ? quoteResource.loading
+          : historicalPrices.loading)
       : allocations.loading
   const company = history?.company ?? allocations.response?.data.company
   const [emphasis, setEmphasis] = useState<ChartLayer | null>(null)
@@ -128,10 +168,7 @@ function CompanyDividends({ code }: { code: string }) {
       ),
     [],
   )
-  const view = useMemo(
-    () => (history ? historyView(history, range) : null),
-    [history, range],
-  )
+
   const allGroups = view ? [...view.recent, ...view.historical] : []
   const ids = [
     ...allGroups.map((group) => `year-${group.year}`),
@@ -249,26 +286,55 @@ function CompanyDividends({ code }: { code: string }) {
               )}
             </div>
             <AnnualChart
-              quote={quote}
+              yieldValues={yieldValues}
+              yieldBasis={yieldBasis}
               metric={{
                 title: '参考股息率',
-                basis: quote?.price
-                  ? `按当前价 ¥${Number(quote.price).toFixed(2)} 折算`
-                  : '按当前价折算',
-                hint: [
-                  quote?.quoteTime
-                    ? `行情时间 ${timeLabel(quote.quoteTime)}`
-                    : null,
-                  '税前已实施每股分红 ÷ 当前价，未作送转调整',
-                ]
-                  .filter(Boolean)
-                  .join('；'),
-                status:
-                  !quoteResource.loading && quoteResource.error
-                    ? quote
-                      ? '更新失败'
-                      : '行情不可用'
+                controls: (
+                  <div
+                    className="chart-yield-switch"
+                    role="group"
+                    aria-label="股息率价格口径"
+                  >
+                    <button
+                      type="button"
+                      aria-pressed={yieldBasis === 'current'}
+                      onClick={() => setYieldBasis('current')}
+                    >
+                      当前价
+                    </button>
+                    <button
+                      type="button"
+                      aria-pressed={yieldBasis === 'yearEnd'}
+                      onClick={() => setYieldBasis('yearEnd')}
+                    >
+                      年末价
+                    </button>
+                  </div>
+                ),
+                basis:
+                  yieldBasis === 'current' && quote?.price
+                    ? `¥${Number(quote.price).toFixed(2)}`
                     : undefined,
+                hint:
+                  yieldBasis === 'yearEnd'
+                    ? '税前已实施每股分红 ÷ 同年末不复权收盘价，未作送转调整'
+                    : [
+                        quote?.quoteTime
+                          ? `行情时间 ${timeLabel(quote.quoteTime)}`
+                          : null,
+                        '税前已实施每股分红 ÷ 当前价，未作送转调整',
+                      ]
+                        .filter(Boolean)
+                        .join('；'),
+                status:
+                  yieldBasis === 'yearEnd'
+                    ? historicalPrices.status
+                    : !quoteResource.loading && quoteResource.error
+                      ? quote
+                        ? '更新失败'
+                        : '行情不可用'
+                      : undefined,
               }}
               emptyContent={
                 !history && resource.loading ? (

@@ -22,7 +22,7 @@ export interface Issue {
   field?: string
   recordId?: string
 }
-export type DataSource = 'tencent' | 'eastmoney'
+export type DataSource = 'tencent' | 'eastmoney' | 'sina'
 export interface Meta {
   source: DataSource
   fetchedAt: string
@@ -139,3 +139,16 @@ export interface AllocationHistory {
 }
 /** Follow limit, and the most codes one `/api/quotes` request may carry. */
 export const MAX_WATCHLIST_SIZE = 50
+
+/** Unadjusted close of the last available trading day within a completed year. */
+export interface YearEndPrice {
+  fiscalYear: number
+  price: string | null
+  tradeDate: string | null
+  fetchedAt: string
+  issues: Issue[]
+}
+export interface YearEndPrices {
+  company: Company
+  years: YearEndPrice[]
+}

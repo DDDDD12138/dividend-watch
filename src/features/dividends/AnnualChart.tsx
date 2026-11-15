@@ -1,9 +1,5 @@
 import { useCallback, useId, useMemo, useState, type ReactNode } from 'react'
-import type {
-  AnnualDividend,
-  EastmoneyDividend,
-  Quote,
-} from '../../../shared/api'
+import type { AnnualDividend, EastmoneyDividend } from '../../../shared/api'
 import {
   cash,
   chartRecords,
@@ -24,11 +20,12 @@ import { dividendAxis } from './axis'
 import { PreListingBand } from './PreListingBand'
 import { isPreListing } from './listing'
 import { ChartMetricRegion, type ChartMetricInfo } from './ChartMetricRegion'
-import { annualReferenceYield } from './referenceYield'
+import { type AnnualYieldValue } from './referenceYield'
 import { annualShareDistribution } from './shareDistribution'
 
 interface ChartProps {
-  quote: Quote | null
+  yieldValues: ReadonlyMap<number, AnnualYieldValue>
+  yieldBasis: 'current' | 'yearEnd'
   metric: ChartMetricInfo
   emptyContent: ReactNode
   listingDate?: string | null
@@ -52,7 +49,8 @@ export function AnnualChart(props: ChartProps) {
   )
 }
 function ChartPlot({
-  quote,
+  yieldValues,
+  yieldBasis,
   metric,
   emptyContent,
   measure,
@@ -101,8 +99,16 @@ function ChartPlot({
     [groups],
   )
   const yields = useMemo(
-    () => groups.map((group) => annualReferenceYield(group.summary, quote)),
-    [groups, quote],
+    () =>
+      groups.map(
+        (group) =>
+          yieldValues.get(group.year) ?? {
+            label: '—',
+            reason: '年度分红金额暂不可用',
+            price: null,
+          },
+      ),
+    [groups, yieldValues],
   )
   const [amountLabels, setAmountLabels] = useState<
     {
@@ -227,7 +233,7 @@ function ChartPlot({
     const amount = group.summary?.implementedTotal
     const change = yearChange(group, summaries)
     const value = yields[index]
-    return `${group.year} 财年\n已实施合计：${cash(amount)} / 股${amount != null ? `\n实施记录：${group.summary!.implementedRecordCount} 条` : ''}${change ? `\n同比：${change}` : ''}\n折算股价：${quote?.price ? `¥${Number(quote.price).toFixed(2)}` : '—'}\n参考股息率：${value.label}${value.reason ? `\n${value.reason}` : ''}\n未作送转调整`
+    return `${group.year} 财年\n已实施合计：${cash(amount)} / 股${amount != null ? `\n实施记录：${group.summary!.implementedRecordCount} 条` : ''}${change ? `\n同比：${change}` : ''}\n折算股价：${value.price ? `¥${Number(value.price).toFixed(2)}` : '—'}${value.tradeDate ? `\n交易日期：${value.tradeDate}` : ''}\n参考股息率：${value.label}${value.reason ? `\n${value.reason}` : ''}\n未作送转调整`
   }
   return (
     <div
@@ -545,7 +551,7 @@ function ChartPlot({
           viewBox={width > 0 ? `0 0 ${width} 64` : undefined}
           height={64}
           role="group"
-          aria-label="各财年按当前价折算的参考股息率"
+          aria-label={`各财年按${yieldBasis === 'current' ? '当前价' : '年末价'}折算的参考股息率`}
         >
           {width > 0 &&
             groups.map((group, index) => {
