@@ -10,6 +10,8 @@ import { layoutAmountLabels } from './amountLabels'
 import { PreListingBand } from './PreListingBand'
 import { isPreListing } from './listing'
 import { ChartMetricRegion, type ChartMetricInfo } from './ChartMetricRegion'
+import { ChartViewport, PinnedChartAxis } from './ChartViewport'
+import { usePlotViewport } from './chartViewportContext'
 import {
   allocationAmount,
   allocationChartAmount,
@@ -27,6 +29,14 @@ interface Props {
   emptyContent: ReactNode
 }
 export function AllocationChart(props: Props) {
+  const years = props.points.map((point) => point.year)
+  return (
+    <ChartViewport key={years.join(',')} kind="allocation" years={years}>
+      <MeasuredAllocationPlot {...props} />
+    </ChartViewport>
+  )
+}
+function MeasuredAllocationPlot(props: Props) {
   const { size, measure } = useChartSize()
   return (
     <AllocationPlot
@@ -53,6 +63,7 @@ function AllocationPlot({
   canvasHeight: number
   measure: ReturnType<typeof useChartSize>['measure']
 }) {
+  const { report, scrolling } = usePlotViewport()
   const { root, active, dismiss, interactionProps, getTargetProps } =
     useChartInteraction(width, canvasHeight, points, ['profit', 'cash'])
   const clipPrefix = useId()
@@ -105,6 +116,7 @@ function AllocationPlot({
         const cashWidths = texts.map(
           (_, index) => cashNodes[index].getBBox().width,
         )
+        report({ left, widths, gap: texts.length <= 5 ? 4 : 8 })
         setLabels((previous) =>
           previous.left === left &&
           previous.widths.length === widths.length &&
@@ -125,7 +137,7 @@ function AllocationPlot({
         document.fonts.removeEventListener('loadingdone', update)
       }
     },
-    [texts, axis, width],
+    [texts, axis, width, report],
   )
   const { left } = labels,
     right = width - 12,
@@ -204,7 +216,12 @@ function AllocationPlot({
                   </g>
                 ))}
               </g>
-              <text className="chart-axis-label" x={left} y={13}>
+              <text
+                className="chart-axis-label"
+                x={left}
+                y={13}
+                visibility={scrolling ? 'hidden' : undefined}
+              >
                 亿元
               </text>
               {axis.ticks.map((tick) => (
@@ -459,6 +476,15 @@ function AllocationPlot({
             })}
         </svg>
       </ChartMetricRegion>
+      <PinnedChartAxis
+        left={left}
+        height={canvasHeight}
+        unit="亿元"
+        ticks={axis.ticks.map((tick) => ({
+          label: tick.label,
+          y: y(tick.value),
+        }))}
+      />
       {active && <ChartTooltip selection={active} onDismiss={dismiss} />}
     </div>
   )

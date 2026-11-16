@@ -1,0 +1,79 @@
+.chart-viewport {
+  position: relative;
+  min-width: 0;
+  padding-bottom: var(--chart-scrollbar-space, 0px);
+}
+.chart-scroll {
+  overflow-x: auto;
+  overflow-y: hidden;
+  overscroll-behavior-x: contain;
+}
+.chart-scrollbar-probe {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100px;
+  height: 100px;
+  overflow-x: scroll;
+  overflow-y: hidden;
+  visibility: hidden;
+  pointer-events: none;
+}
+.chart-viewport-canvas .chart-metric-heading {
+  position: sticky;
+  left: 0;
+  width: var(--chart-viewport-width);
+  background: var(--color-surface);
+}
+.chart-fixed-axis {
+  position: absolute;
+  top: var(--space-2);
+  left: 0;
+  pointer-events: none;
+}
+.chart-fixed-axis > svg {
+  display: block;
+  overflow: visible;
+  background: var(--color-surface);
+}
+.chart-display-toggle {
+  --icon-size: 16px;
+  position: absolute;
+  top: -4px;
+  right: 0;
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--color-text-muted);
+  cursor: pointer;
+}
+.chart-display-toggle[aria-pressed='true'] {
+  color: var(--color-primary);
+}
+@media (hover: hover) {
+  .chart-display-toggle:hover {
+    color: var(--color-primary);
+    background: var(--color-surface-hover);
+  }
+}
+@media (pointer: coarse) {
+  .chart-display-toggle::before {
+    content: '';
+    position: absolute;
+    inset: -6px;
+  }
+}
+.chart-viewport-status {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}

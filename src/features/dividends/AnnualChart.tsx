@@ -22,6 +22,8 @@ import { isPreListing } from './listing'
 import { ChartMetricRegion, type ChartMetricInfo } from './ChartMetricRegion'
 import { type AnnualYieldValue } from './referenceYield'
 import { annualShareDistribution } from './shareDistribution'
+import { ChartViewport, PinnedChartAxis } from './ChartViewport'
+import { usePlotViewport } from './chartViewportContext'
 
 interface ChartProps {
   yieldValues: ReadonlyMap<number, AnnualYieldValue>
@@ -36,6 +38,14 @@ interface ChartProps {
   onRecord: (record: EastmoneyDividend) => void
 }
 export function AnnualChart(props: ChartProps) {
+  const years = props.groups.map((group) => group.year)
+  return (
+    <ChartViewport key={years.join(',')} kind="dividend" years={years}>
+      <AnnualPlot {...props} />
+    </ChartViewport>
+  )
+}
+function AnnualPlot(props: ChartProps) {
   const { size, measure } = useChartSize()
   const scope = props.groups.map((group) => group.year).join(',')
   return (
@@ -67,6 +77,7 @@ function ChartPlot({
   canvasHeight: number
   measure: ReturnType<typeof useChartSize>['measure']
 }) {
+  const { report, scrolling } = usePlotViewport()
   const { root, active, dismiss, interactionProps, getTargetProps } =
     useChartInteraction(width, canvasHeight, groups, ['year', 'record'])
   const transferPatternId = useId()
@@ -175,6 +186,17 @@ function ChartPlot({
         const transferBoxes = transfers.map((_, index) =>
           transferNodes[index].getBBox(),
         )
+        report({
+          left: nextLeft,
+          widths: boxes.map((box, index) =>
+            Math.max(box.width + 4, metricWidths[index]),
+          ),
+          gap: 12,
+          yearSpacing: 48,
+          events: transferBoxes.map((box, index) =>
+            transfers[index] ? box.width + 4 : null,
+          ),
+        })
         const transferLayout = layoutEventLabels(
           transferBoxes.map((box, index) =>
             transfers[index] ? box.width + 4 : null,
@@ -227,7 +249,7 @@ function ChartPlot({
         document.fonts.removeEventListener('loadingdone', measure)
       }
     },
-    [amountTexts, yields, transfers, axis, width],
+    [amountTexts, yields, transfers, axis, width, report],
   )
   function yearText(group: YearGroup, index: number) {
     const amount = group.summary?.implementedTotal
@@ -316,7 +338,12 @@ function ChartPlot({
                   </text>
                 ))}
               </g>
-              <text className="chart-axis-label" x={left} y={13}>
+              <text
+                className="chart-axis-label"
+                x={left}
+                y={13}
+                visibility={scrolling ? 'hidden' : undefined}
+              >
                 {hasTransfers ? '现金：元 / 股' : '元 / 股'}
               </text>
               {axis.ticks.map((tick) => {
@@ -608,6 +635,15 @@ function ChartPlot({
             })}
         </svg>
       </ChartMetricRegion>
+      <PinnedChartAxis
+        left={left}
+        height={canvasHeight}
+        unit={hasTransfers ? '现金：元 / 股' : '元 / 股'}
+        ticks={axis.ticks.map((tick) => ({
+          label: tick.label,
+          y: bottom - (plotHeight * tick.value) / ceiling,
+        }))}
+      />
       {active && <ChartTooltip selection={active} onDismiss={dismiss} />}
     </div>
   )

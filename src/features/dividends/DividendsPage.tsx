@@ -39,6 +39,7 @@ import {
 } from './referenceYield'
 import { isPreListing } from './listing'
 import { useYearEndPrices } from './yearEndPrices'
+import { ChartViewProvider } from './ChartViewport'
 import './dividends.css'
 
 export function DividendsPage() {
@@ -50,7 +51,11 @@ export function DividendsPage() {
         <h1>股票代码无效</h1>
       </main>
     )
-  return <CompanyDividends key={code} code={code} />
+  return (
+    <ChartViewProvider key={code}>
+      <CompanyDividends code={code} />
+    </ChartViewProvider>
+  )
 }
 function CompanyDividends({ code }: { code: string }) {
   const [revision, setRevision] = useState(0)
