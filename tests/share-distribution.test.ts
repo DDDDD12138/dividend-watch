@@ -20,6 +20,7 @@ vi.mock('../src/features/dividends/chartHooks', async (importOriginal) => ({
     size: { width: 800, height: 400 },
     measure: () => {},
   }),
+  useChartHeight: () => ({ height: 400, measure: () => {} }),
 }))
 
 let history: DividendHistory

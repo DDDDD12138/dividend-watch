@@ -12,7 +12,8 @@ import { ChartTooltip } from './ChartTooltip'
 import {
   CHART_BOTTOM_PADDING,
   CHART_YEAR_LABEL_OFFSET,
-  useChartSize,
+  useChartHeight,
+  observeChartTypography,
 } from './chartHooks'
 import { useChartInteraction } from './useChartInteraction'
 import { layoutAmountLabels, layoutEventLabels } from './amountLabels'
@@ -46,14 +47,15 @@ export function AnnualChart(props: ChartProps) {
   )
 }
 function AnnualPlot(props: ChartProps) {
-  const { size, measure } = useChartSize()
+  const { height, measure } = useChartHeight()
+  const { width } = usePlotViewport()
   const scope = props.groups.map((group) => group.year).join(',')
   return (
     <ChartPlot
       key={scope}
       {...props}
-      width={size.width}
-      canvasHeight={size.height}
+      width={width}
+      canvasHeight={height}
       measure={measure}
     />
   )
@@ -75,7 +77,7 @@ function ChartPlot({
 }: ChartProps & {
   width: number
   canvasHeight: number
-  measure: ReturnType<typeof useChartSize>['measure']
+  measure: ReturnType<typeof useChartHeight>['measure']
 }) {
   const { report, scrolling } = usePlotViewport()
   const { root, active, dismiss, interactionProps, getTargetProps } =
@@ -83,7 +85,17 @@ function ChartPlot({
   const transferPatternId = useId()
   const transfers = useMemo(() => groups.map(annualShareDistribution), [groups])
   const hasTransfers = transfers.some(Boolean)
-  const [left, setLeft] = useState(0)
+  const [measuredLabels, setMeasuredLabels] = useState<{
+    left: number
+    amounts: {
+      width: number
+      metricWidth: number
+      top: number
+      height: number
+    }[]
+    transfers: { width: number; top: number; height: number }[]
+  }>({ left: 40, amounts: [], transfers: [] })
+  const { left } = measuredLabels
   const bottom = canvasHeight - CHART_BOTTOM_PADDING,
     plotTop = 24,
     plotHeight = bottom - plotTop
@@ -121,31 +133,24 @@ function ChartPlot({
       ),
     [groups, yieldValues],
   )
-  const [amountLabels, setAmountLabels] = useState<
-    {
-      x: number
-      visible: boolean
-      width: number
-      metricWidth: number
-      top: number
-      height: number
-    }[]
-  >([])
-  const [transferLabels, setTransferLabels] = useState<
-    {
-      x: number
-      visible: boolean
-      width: number
-      top: number
-      height: number
-    }[]
-  >([])
+  // Text dimensions change with fonts/data. Positions change with the controlled width
+  // and must be derived in the same render as the bars and SVG viewBox.
+  const amountLabels = layoutAmountLabels(
+    measuredLabels.amounts.map((box) => Math.max(box.width, box.metricWidth)),
+    left,
+    width - 12,
+  ).map((label, index) => ({ ...label, ...measuredLabels.amounts[index] }))
+  const transferLabels = layoutEventLabels(
+    measuredLabels.transfers.map((box, index) =>
+      transfers[index] ? box.width : null,
+    ),
+    left,
+    width - 12,
+  ).map((label, index) => ({ ...label, ...measuredLabels.transfers[index] }))
   const measureLabels = useCallback(
     (svg: SVGSVGElement | null) => {
       if (!svg) return
-      let disposed = false
       function measure() {
-        if (disposed) return
         const axisNodes = svg!.querySelectorAll<SVGTextElement>(
           '.chart-axis-measure',
         )
@@ -155,7 +160,6 @@ function ChartPlot({
             (_, index) => Math.ceil(axisNodes[index].getBBox().width) + 16,
           ),
         )
-        setLeft(nextLeft)
         const nodes = svg!.querySelectorAll<SVGTextElement>(
           '.chart-amount-measure',
         )
@@ -166,19 +170,11 @@ function ChartPlot({
         const metricWidths = yields.map((_, index) =>
           Math.max(32, metricNodes[index].getBBox().width + 4),
         )
-        const layout = layoutAmountLabels(
-          boxes.map((box, index) =>
-            Math.max(box.width + 4, metricWidths[index]),
-          ),
-          nextLeft,
-          width - 12,
-        )
-        const next = layout.map((label, index) => ({
-          ...label,
-          width: boxes[index].width + 4,
+        const amounts = boxes.map((box, index) => ({
+          width: box.width + 4,
           metricWidth: metricWidths[index],
-          top: boxes[index].y - 2,
-          height: boxes[index].height + 4,
+          top: box.y - 2,
+          height: box.height + 4,
         }))
         const transferNodes = svg!.querySelectorAll<SVGTextElement>(
           '.chart-transfer-measure',
@@ -197,59 +193,39 @@ function ChartPlot({
             transfers[index] ? box.width + 4 : null,
           ),
         })
-        const transferLayout = layoutEventLabels(
-          transferBoxes.map((box, index) =>
-            transfers[index] ? box.width + 4 : null,
-          ),
-          nextLeft,
-          width - 12,
-        ).map((label, index) => ({
-          ...label,
-          width: transferBoxes[index].width + 4,
-          top: transferBoxes[index].y - 2,
-          height: transferBoxes[index].height + 4,
+        const captions = transferBoxes.map((box) => ({
+          width: box.width + 4,
+          top: box.y - 2,
+          height: box.height + 4,
         }))
-        setTransferLabels((previous) =>
-          previous.length === transferLayout.length &&
-          previous.every((label, index) => {
-            const other = transferLayout[index]
+        setMeasuredLabels((previous) =>
+          previous.left === nextLeft &&
+          previous.amounts.length === amounts.length &&
+          previous.transfers.length === captions.length &&
+          previous.amounts.every((box, index) => {
+            const other = amounts[index]
             return (
-              label.x === other.x &&
-              label.visible === other.visible &&
-              label.width === other.width &&
-              label.top === other.top &&
-              label.height === other.height
+              box.width === other.width &&
+              box.metricWidth === other.metricWidth &&
+              box.top === other.top &&
+              box.height === other.height
+            )
+          }) &&
+          previous.transfers.every((box, index) => {
+            const other = captions[index]
+            return (
+              box.width === other.width &&
+              box.top === other.top &&
+              box.height === other.height
             )
           })
             ? previous
-            : transferLayout,
-        )
-        setAmountLabels((previous) =>
-          previous.length === next.length &&
-          previous.every((label, index) => {
-            const other = next[index]
-            return (
-              label.x === other.x &&
-              label.visible === other.visible &&
-              label.width === other.width &&
-              label.metricWidth === other.metricWidth &&
-              label.top === other.top &&
-              label.height === other.height
-            )
-          })
-            ? previous
-            : next,
+            : { left: nextLeft, amounts, transfers: captions },
         )
       }
-      measure()
-      void document.fonts.ready.then(measure)
-      document.fonts.addEventListener('loadingdone', measure)
-      return () => {
-        disposed = true
-        document.fonts.removeEventListener('loadingdone', measure)
-      }
+      return observeChartTypography(measure)
     },
-    [amountTexts, yields, transfers, axis, width, report],
+    [amountTexts, yields, transfers, axis, report],
   )
   function yearText(group: YearGroup, index: number) {
     const amount = group.summary?.implementedTotal
@@ -273,7 +249,7 @@ function ChartPlot({
             <svg
               ref={measureLabels}
               viewBox={`0 0 ${width} ${canvasHeight}`}
-              height={canvasHeight}
+              style={{ width, height: canvasHeight }}
               role="group"
               aria-label={
                 hasTransfers
@@ -576,6 +552,7 @@ function ChartPlot({
       <ChartMetricRegion {...metric}>
         <svg
           viewBox={width > 0 ? `0 0 ${width} 64` : undefined}
+          style={{ width }}
           height={64}
           role="group"
           aria-label={`各财年按${yieldBasis === 'current' ? '当前价' : '年末价'}折算的参考股息率`}

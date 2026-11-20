@@ -36,11 +36,13 @@ export const SharedViewContext = createContext<ReturnType<
 > | null>(null)
 
 interface PlotViewport {
+  width: number
   report: (measurements: ChartMeasurements) => void
   axisTarget: HTMLDivElement | null
   scrolling: boolean
 }
 export const PlotViewportContext = createContext<PlotViewport>({
+  width: 0,
   report: () => {},
   axisTarget: null,
   scrolling: false,

@@ -126,25 +126,30 @@ export function ChartViewport({
       setExpanded(false)
   }, [requested, crowded, size.width, setExpanded])
 
-  useLayoutEffect(() => {
+  const reserveScrollbarSpace = useCallback(() => {
     const node = scroller.current,
       sample = probe.current
     const wrapper = node?.parentElement
     if (!node || !sample || !wrapper) return
-    function reserveSpace() {
-      // Native scrollbars consume this space only when needed. Overlay bars consume zero.
-      const nativeHeight = sample!.offsetHeight - sample!.clientHeight
-      const occupiedHeight = node!.offsetHeight - node!.clientHeight
-      const value = `${Math.max(0, nativeHeight - occupiedHeight)}px`
-      if (wrapper!.style.getPropertyValue('--chart-scrollbar-space') !== value)
-        wrapper!.style.setProperty('--chart-scrollbar-space', value)
-    }
-    reserveSpace()
-    const observer = new ResizeObserver(reserveSpace)
+    // Native scrollbars consume this space only when needed. Overlay bars consume zero.
+    const nativeHeight = sample.offsetHeight - sample.clientHeight
+    const occupiedHeight = node.offsetHeight - node.clientHeight
+    const value = `${Math.max(0, nativeHeight - occupiedHeight)}px`
+    if (wrapper.style.getPropertyValue('--chart-scrollbar-space') !== value)
+      wrapper.style.setProperty('--chart-scrollbar-space', value)
+  }, [])
+  // Keep reservation in the same React commit as the canvas width change.
+  // ResizeObserver also covers geometry changes initiated by the browser.
+  useLayoutEffect(reserveScrollbarSpace, [reserveScrollbarSpace, width])
+  useLayoutEffect(() => {
+    const node = scroller.current,
+      sample = probe.current
+    if (!node || !sample) return
+    const observer = new ResizeObserver(reserveScrollbarSpace)
     observer.observe(node, { box: 'border-box' })
     observer.observe(sample)
     return () => observer.disconnect()
-  }, [])
+  }, [reserveScrollbarSpace])
 
   function synchronizeYear() {
     const node = scroller.current
@@ -188,8 +193,8 @@ export function ChartViewport({
   }, [expanded, ready, width, size.width, firstYear, step, getYear])
 
   const plotContext = useMemo(
-    () => ({ report, axisTarget, scrolling }),
-    [report, axisTarget, scrolling],
+    () => ({ report, axisTarget, scrolling, width }),
+    [report, axisTarget, scrolling, width],
   )
   return (
     <PlotViewportContext.Provider value={plotContext}>
@@ -257,7 +262,7 @@ export function PinnedChartAxis({
   if (!axisTarget || !scrolling) return null
   return createPortal(
     <svg width={left} height={height}>
-      <text className="chart-axis-label" x={0} y={13}>
+      <text className="chart-axis-label" x={left} y={13}>
         {unit}
       </text>
       {ticks.map((tick) => (

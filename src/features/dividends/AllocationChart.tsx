@@ -3,7 +3,8 @@ import { ChartTooltip } from './ChartTooltip'
 import {
   CHART_BOTTOM_PADDING,
   CHART_YEAR_LABEL_OFFSET,
-  useChartSize,
+  useChartHeight,
+  observeChartTypography,
 } from './chartHooks'
 import { useChartInteraction } from './useChartInteraction'
 import { layoutAmountLabels } from './amountLabels'
@@ -37,13 +38,14 @@ export function AllocationChart(props: Props) {
   )
 }
 function MeasuredAllocationPlot(props: Props) {
-  const { size, measure } = useChartSize()
+  const { height, measure } = useChartHeight()
+  const { width } = usePlotViewport()
   return (
     <AllocationPlot
       key={props.points.map((point) => point.year).join(',')}
       {...props}
-      width={size.width}
-      canvasHeight={size.height}
+      width={width}
+      canvasHeight={height}
       measure={measure}
     />
   )
@@ -61,7 +63,7 @@ function AllocationPlot({
 }: Props & {
   width: number
   canvasHeight: number
-  measure: ReturnType<typeof useChartSize>['measure']
+  measure: ReturnType<typeof useChartHeight>['measure']
 }) {
   const { report, scrolling } = usePlotViewport()
   const { root, active, dismiss, interactionProps, getTargetProps } =
@@ -85,9 +87,7 @@ function AllocationPlot({
   const measureLabels = useCallback(
     (svg: SVGSVGElement | null) => {
       if (!svg) return
-      let disposed = false
       function update() {
-        if (disposed || width <= 0) return
         const axisNodes = svg!.querySelectorAll<SVGTextElement>(
           '.allocation-axis-measure',
         )
@@ -129,15 +129,9 @@ function AllocationPlot({
             : { left, widths, cashWidths },
         )
       }
-      update()
-      void document.fonts.ready.then(update)
-      document.fonts.addEventListener('loadingdone', update)
-      return () => {
-        disposed = true
-        document.fonts.removeEventListener('loadingdone', update)
-      }
+      return observeChartTypography(update)
     },
-    [texts, axis, width, report],
+    [texts, axis, report],
   )
   const { left } = labels,
     right = width - 12,
@@ -190,6 +184,7 @@ function AllocationPlot({
             <svg
               ref={measureLabels}
               viewBox={`0 0 ${width} ${canvasHeight}`}
+              style={{ width, height: canvasHeight }}
               role="group"
               aria-label="归母净利润与已实施现金分红总额，共用亿元刻度"
             >
@@ -430,6 +425,7 @@ function AllocationPlot({
       <ChartMetricRegion title="现金分红比例" status={status}>
         <svg
           viewBox={width > 0 ? `0 0 ${width} 64` : undefined}
+          style={{ width }}
           height={64}
           role="group"
           aria-label="各年度现金分红比例"
