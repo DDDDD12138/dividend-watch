@@ -1,0 +1,7 @@
+User-agent: *
+Allow: /
+Disallow: /api/health
+
+# Keep data endpoints accessible for rendering public pages.
+# Guidance for agents: https://divwatch.top/llms.txt
+Sitemap: https://divwatch.top/sitemap.xml

@@ -1,0 +1,14 @@
+# Dividend Watch
+
+> Dividend Watch is a tool for exploring dividend history for Chinese A-share companies and calculating target prices based on a desired dividend yield.
+
+Search by company name or stock code, manage a watchlist, and view annual dividend summaries and individual dividend records.
+
+Select a company on the homepage to view its dividend details at `/dividends/{code}`, where `{code}` is the six-digit stock code, including any leading zeros.
+
+## Links
+
+- [Homepage](https://divwatch.top/): Company search, watchlist, and dividend overview.
+- [Mainland China access](https://cn.divwatch.top/): Alternative access to Dividend Watch for users in mainland China.
+- [Sitemap](https://divwatch.top/sitemap.xml): Index of public pages.
+- [Crawling rules](https://divwatch.top/robots.txt): Follow these rules, fetch only what is needed, and avoid repeated requests.

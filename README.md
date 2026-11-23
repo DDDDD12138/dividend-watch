@@ -85,6 +85,7 @@ pnpm icons:generate
 
 ```text
 src/                  React 页面、样式和模块资源
+public/               公共静态文件：图标、manifest、爬虫说明与站点地图
 vite.config.ts        Vite 开发与构建配置
 tsconfig.app.json     前端 TypeScript 配置
 tsconfig.node.json    Vite 配置文件的 TypeScript 配置
